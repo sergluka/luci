@@ -142,7 +142,8 @@ fn build_graph<'a>(
         debug!(" processing event[{:?}]...", event.id);
 
         let this_name = &event.id;
-        let after = resolve_event_ids(&idx_keys, &event.after).collect::<Result<Vec<_>, _>>()?;
+        let after =
+            resolve_event_ids(&idx_keys, &event.prerequisites).collect::<Result<Vec<_>, _>>()?;
 
         let this_key = match &event.kind {
             EventKind::Delay(def_delay) => {

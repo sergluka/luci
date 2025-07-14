@@ -72,7 +72,9 @@ pub struct EventDef {
 
     #[serde(default)]
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub after: Vec<EventName>,
+    #[serde(rename = "happens_after")]
+    #[cfg_attr(feature = "backwards-compatibilty", serde(alias = "after"))]
+    pub prerequisites: Vec<EventName>,
 
     #[serde(flatten)]
     pub kind: EventKind,
@@ -163,10 +165,10 @@ pub struct EventDelay {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Msg {
-    #[serde(alias = "exact")]
+    #[cfg_attr(feature = "backwards-compatibilty", serde(alias = "exact"))]
     Literal(Value),
     Bind(Value),
-    #[serde(alias = "injected")]
+    #[cfg_attr(feature = "backwards-compatibilty", serde(alias = "injected"))]
     Inject(String),
 }
 
