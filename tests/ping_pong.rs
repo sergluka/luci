@@ -127,7 +127,7 @@ async fn run_scenario(scenario_text: &str) {
         .build(&scenario)
         .expect("building graph");
     let report = exec_graph
-        .make_runner(pinger::blueprint(), json!(null))
+        .start(pinger::blueprint(), json!(null))
         .await
         .run()
         .await

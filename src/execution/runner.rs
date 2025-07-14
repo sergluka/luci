@@ -109,7 +109,7 @@ struct Dummies {
 }
 
 impl Executable {
-    pub async fn make_runner<C>(&self, blueprint: Blueprint, config: C) -> Running<'_>
+    pub async fn start<C>(&self, blueprint: Blueprint, config: C) -> Running<'_>
     where
         C: for<'de> serde::de::Deserializer<'de>,
     {
@@ -118,54 +118,6 @@ impl Executable {
 }
 
 impl<'a> Running<'a> {
-    pub async fn new<C>(graph: &'a Executable, blueprint: Blueprint, config: C) -> Self
-    where
-        C: for<'de> serde::de::Deserializer<'de>,
-    {
-        let proxies = vec![elfo::test::proxy(blueprint, config).await];
-        let mut delays = Delays::default();
-
-        let ready_events = graph.vertices.entry_points.clone();
-
-        let now = Instant::now();
-        ready_events.iter().copied().for_each(|k| {
-            if let EventKey::Delay(k) = k {
-                delays.insert(now, k, &graph.vertices.delay[k]);
-            }
-        });
-
-        let key_requires_values = graph
-            .vertices
-            .key_unblocks_values
-            .iter()
-            .flat_map(|(&prereq, dependants)| {
-                dependants
-                    .iter()
-                    .copied()
-                    .map(move |dependant| (dependant, prereq))
-            })
-            .fold(
-                HashMap::<EventKey, HashSet<EventKey>>::new(),
-                |mut acc, (dependant, prereq)| {
-                    acc.entry(dependant).or_default().insert(prereq);
-                    acc
-                },
-            );
-        Self {
-            graph,
-
-            ready_events,
-            key_requires_values,
-            delays,
-
-            proxies,
-            actors: Default::default(),
-            dummies: Default::default(),
-            bindings: Default::default(),
-            envelopes: Default::default(),
-        }
-    }
-
     pub async fn run(mut self) -> Result<Report, RunError> {
         let mut unreached = self.graph.vertices.required.clone();
         let mut reached = HashMap::new();
@@ -656,6 +608,56 @@ impl<'a> Running<'a> {
         }
 
         Ok(actually_fired_events)
+    }
+}
+
+impl<'a> Running<'a> {
+    async fn new<C>(graph: &'a Executable, blueprint: Blueprint, config: C) -> Self
+    where
+        C: for<'de> serde::de::Deserializer<'de>,
+    {
+        let proxies = vec![elfo::test::proxy(blueprint, config).await];
+        let mut delays = Delays::default();
+
+        let ready_events = graph.vertices.entry_points.clone();
+
+        let now = Instant::now();
+        ready_events.iter().copied().for_each(|k| {
+            if let EventKey::Delay(k) = k {
+                delays.insert(now, k, &graph.vertices.delay[k]);
+            }
+        });
+
+        let key_requires_values = graph
+            .vertices
+            .key_unblocks_values
+            .iter()
+            .flat_map(|(&prereq, dependants)| {
+                dependants
+                    .iter()
+                    .copied()
+                    .map(move |dependant| (dependant, prereq))
+            })
+            .fold(
+                HashMap::<EventKey, HashSet<EventKey>>::new(),
+                |mut acc, (dependant, prereq)| {
+                    acc.entry(dependant).or_default().insert(prereq);
+                    acc
+                },
+            );
+        Self {
+            graph,
+
+            ready_events,
+            key_requires_values,
+            delays,
+
+            proxies,
+            actors: Default::default(),
+            dummies: Default::default(),
+            bindings: Default::default(),
+            envelopes: Default::default(),
+        }
     }
 }
 

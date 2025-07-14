@@ -64,7 +64,7 @@ async fn run_scenario(scenario_text: &str) {
         .build(&scenario)
         .expect("building graph");
     let report = exec_graph
-        .make_runner(echo::blueprint(), json!(null))
+        .start(echo::blueprint(), json!(null))
         .await
         .run()
         .await
