@@ -57,7 +57,7 @@ pub struct DefEvent {
     #[serde(default)]
     #[serde(skip_serializing_if = "Vec::is_empty")]
     #[serde(rename = "happens_after")]
-    #[cfg_attr(feature = "backwards-compatibilty", serde(alias = "after"))]
+    #[cfg_attr(feature = "backwards-compatibility", serde(alias = "after"))]
     pub prerequisites: Vec<EventName>,
 
     #[serde(flatten)]
@@ -124,7 +124,8 @@ pub struct DefEventRespond {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub from: Option<ActorName>,
 
-    pub to: EventName,
+    #[cfg_attr(feature = "backwards-compatibility", serde(alias = "to"))]
+    pub to_request: EventName,
     pub data: Msg,
 
     #[serde(flatten)]
@@ -149,10 +150,10 @@ pub struct DefEventDelay {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Msg {
-    #[cfg_attr(feature = "backwards-compatibilty", serde(alias = "exact"))]
+    #[cfg_attr(feature = "backwards-compatibility", serde(alias = "exact"))]
     Literal(Value),
     Bind(Value),
-    #[cfg_attr(feature = "backwards-compatibilty", serde(alias = "injected"))]
+    #[cfg_attr(feature = "backwards-compatibility", serde(alias = "injected"))]
     Inject(String),
 }
 

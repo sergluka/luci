@@ -129,7 +129,7 @@ fn build_graph<'a>(
     event_defs: impl IntoIterator<Item = &'a DefEvent>,
     type_aliases: &HashMap<MessageName, Arc<str>>,
     actors: &HashSet<ActorName>,
-    _messages: &Messages,
+    messages: &Messages,
 ) -> Result<Events, BuildError<'a>> {
     let mut v_delay = SlotMap::<KeyDelay, _>::default();
     let mut v_bind = SlotMap::<KeyBind, _>::default();
@@ -239,7 +239,7 @@ fn build_graph<'a>(
             DefEventKind::Respond(def_respond) => {
                 let DefEventRespond {
                     from,
-                    to,
+                    to_request: to,
                     data,
                     no_extra: _,
                 } = def_respond;
@@ -257,6 +257,13 @@ fn build_graph<'a>(
 
                 if let Some(bad_actor) = from.as_ref().filter(|a| !actors.contains(a)) {
                     return Err(BuildError::UnknownActor(bad_actor));
+                }
+
+                if messages
+                    .resolve(&request_fqn)
+                    .is_none_or(|m| m.response().is_none())
+                {
+                    return Err(BuildError::NotARequest(&to));
                 }
 
                 let key = v_respond.insert(VertexRespond {
