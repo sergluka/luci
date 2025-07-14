@@ -220,16 +220,11 @@ fn build_graph<'a>(
                         return Err(BuildError::UnknownActor(&a));
                     }
                 }
-                // let marshaller = messages.resolve(&type_fqn).expect("an invalid fqn");
-                // let _ = marshaller
-                //     .marshall(&Default::default(), def_send.message_data.clone())
-                //     .map_err(BuildError::InvalidData)?;
 
                 let key = vertices.send.insert(VertexSend {
                     from: from.clone(),
                     to: to.clone(),
                     fqn: type_fqn,
-                    // TODO: try actually marshalling this value using this `type_fqn`.
                     payload: message_data.clone(),
                 });
                 EventKey::Send(key)
