@@ -122,10 +122,19 @@ where
             return None;
         }
 
-        let Value::Array(mut triple) = serde_json::to_value(envelope.message()).ok()? else {
-            panic!("AnyMessage has changed serialization format?")
-        };
-        let serialized = std::mem::take(&mut triple[2]);
+        fn extract_message_payload(envelope: &Envelope) -> Option<Value> {
+            let mut message_parts = serde_json::to_value(envelope.message()).ok()?;
+            let &mut [ref mut _proto, ref mut _name, ref mut payload] =
+                &mut message_parts.as_array_mut()?[..]
+            else {
+                return None;
+            };
+            let payload = std::mem::take(payload);
+            Some(payload)
+        }
+
+        let serialized = extract_message_payload(envelope)
+            .expect("AnyMessage has changed serialization format?");
 
         trace!("      serialized: {:?}", serialized);
         trace!("      bind-to: {:?}", bind_to);
