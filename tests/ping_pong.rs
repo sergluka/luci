@@ -1,7 +1,7 @@
 use luci::{
     execution_graph::ExecutionGraph,
     messages::{Messages, Regular},
-    scenario::{RequiredToBe, DefScenario},
+    scenario::{DefScenario, RequiredToBe},
 };
 use serde_json::json;
 

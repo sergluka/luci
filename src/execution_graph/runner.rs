@@ -17,7 +17,8 @@ use crate::{
         VertexRecv, VertexRespond, VertexSend,
     },
     messages,
-    scenario::{ActorName, EventName, Msg, RequiredToBe},
+    names::{ActorName, EventName},
+    scenario::{Msg, RequiredToBe},
 };
 
 #[derive(Debug, thiserror::Error)]

@@ -9,7 +9,8 @@ use slotmap::{new_key_type, SlotMap};
 
 use crate::{
     messages::Messages,
-    scenario::{ActorName, EventName, Msg, RequiredToBe},
+    names::{ActorName, EventName},
+    scenario::{Msg, RequiredToBe},
 };
 
 mod build;

@@ -14,7 +14,8 @@ use crate::{
 use crate::{
     execution_graph::{Events, ExecutionGraph, VertexDelay, VertexRecv, VertexRespond, VertexSend},
     messages::Messages,
-    scenario::{ActorName, DefEvent, DefEventKind, EventName, MessageName, DefScenario, DefTypeAlias},
+    names::{ActorName, EventName, MessageName},
+    scenario::{DefEvent, DefEventKind, DefScenario, DefTypeAlias},
 };
 
 #[derive(Debug, thiserror::Error)]
