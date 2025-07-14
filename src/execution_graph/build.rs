@@ -195,10 +195,10 @@ fn build_graph<'a>(
                 }
 
                 let key = vertices.recv.insert(VertexRecv {
-                    match_from: from.clone(),
-                    match_to: to.clone(),
-                    match_type: type_fqn,
-                    match_message: message_data.clone(),
+                    from: from.clone(),
+                    to: to.clone(),
+                    fqn: type_fqn,
+                    payload: message_data.clone(),
                 });
                 EventKey::Recv(key)
             }
@@ -227,11 +227,11 @@ fn build_graph<'a>(
                 //     .map_err(BuildError::InvalidData)?;
 
                 let key = vertices.send.insert(VertexSend {
-                    send_from: from.clone(),
-                    send_to: to.clone(),
-                    message_type: type_fqn,
+                    from: from.clone(),
+                    to: to.clone(),
+                    fqn: type_fqn,
                     // TODO: try actually marshalling this value using this `type_fqn`.
-                    message_data: message_data.clone(),
+                    payload: message_data.clone(),
                 });
                 EventKey::Send(key)
             }
@@ -250,7 +250,7 @@ fn build_graph<'a>(
                 let request_fqn = vertices
                     .recv.get(*recv_key)
                     .expect("we do not delete items from `recv`; neither we store keys that are unrelated to our collections")
-                    .match_type.clone();
+                    .fqn.clone();
 
                 // TODO: 1. Check whether the `request_fqn` is a request.
                 // TODO: 2. Try actually marshalling this value using `request_fqn`.
@@ -261,9 +261,9 @@ fn build_graph<'a>(
 
                 let key = vertices.respond.insert(VertexRespond {
                     respond_to: *recv_key,
-                    request_fqn,
+                    request_type: request_fqn,
                     respond_from: from.clone(),
-                    message_data: data.clone(),
+                    payload: data.clone(),
                 });
                 EventKey::Respond(key)
             }
@@ -290,7 +290,7 @@ fn build_graph<'a>(
 
             assert!(
                 should_be_a_new_element,
-                "duplicate unblocks relation? {:?} -> {:?}",
+                "duplicate  relation: {:?} unblocks {:?}",
                 *prerequisite, this_key
             );
         }

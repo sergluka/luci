@@ -413,10 +413,10 @@ impl<'a> Runner<'a> {
             }
             ReadyEventKey::Send(k) => {
                 let VertexSend {
-                    send_from,
-                    send_to,
-                    message_type,
-                    message_data,
+                    from: send_from,
+                    to: send_to,
+                    fqn: message_type,
+                    payload: message_data,
                 } = &vertices.send[k];
                 debug!(
                     " sending {:?} [from: {:?}; to: {:?}]",
@@ -471,9 +471,9 @@ impl<'a> Runner<'a> {
             ReadyEventKey::Respond(k) => {
                 let VertexRespond {
                     respond_to,
-                    request_fqn,
+                    request_type: request_fqn,
                     respond_from,
-                    message_data,
+                    payload: message_data,
                 } = &vertices.respond[k];
                 debug!(
                     " responding to a {:?} [from: {:?}]",
@@ -575,10 +575,10 @@ impl<'a> Runner<'a> {
                             vertices.names.get(&EventKey::Recv(recv_key)).unwrap()
                         );
                         let VertexRecv {
-                            match_type,
-                            match_from,
-                            match_to,
-                            match_message,
+                            fqn: match_type,
+                            from: match_from,
+                            to: match_to,
+                            payload: match_message,
                         } = &vertices.recv[recv_key];
                         let marshaller = messages.resolve(&match_type).expect("bad FQN");
 

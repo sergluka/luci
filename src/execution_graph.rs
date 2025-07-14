@@ -57,26 +57,26 @@ struct Vertices {
 
 #[derive(Debug)]
 struct VertexSend {
-    send_from: ActorName,
-    send_to: Option<ActorName>,
-    message_type: Arc<str>,
-    message_data: Msg,
+    from: ActorName,
+    to: Option<ActorName>,
+    fqn: Arc<str>,
+    payload: Msg,
 }
 
 #[derive(Debug)]
 struct VertexRecv {
-    match_type: Arc<str>,
-    match_from: Option<ActorName>,
-    match_to: Option<ActorName>,
-    match_message: Msg,
+    from: Option<ActorName>,
+    to: Option<ActorName>,
+    fqn: Arc<str>,
+    payload: Msg,
 }
 
 #[derive(Debug)]
 struct VertexRespond {
     respond_to: KeyRecv,
-    request_fqn: Arc<str>,
+    request_type: Arc<str>,
     respond_from: Option<ActorName>,
-    message_data: Msg,
+    payload: Msg,
 }
 
 #[derive(Debug)]
