@@ -73,7 +73,7 @@ impl Builder {
         }
 
         debug!("checking actor-names...");
-        let actors = sanitize_cast(&scenario.cast)?;
+        let actors = validate_actor_names(&scenario.cast)?;
         for a in &actors {
             trace!("- {:?}", a);
         }
@@ -112,14 +112,14 @@ fn type_aliases<'a>(
     Ok(aliases)
 }
 
-fn sanitize_cast<'a>(
-    cast: impl IntoIterator<Item = &'a ActorName>,
+fn validate_actor_names<'a>(
+    actor_names: impl IntoIterator<Item = &'a ActorName>,
 ) -> Result<HashSet<ActorName>, BuildError<'a>> {
     let mut out = HashSet::new();
 
-    for a in cast {
-        if !out.insert(a.clone()) {
-            return Err(BuildError::DuplicateActorName(a));
+    for name in actor_names {
+        if !out.insert(name.clone()) {
+            return Err(BuildError::DuplicateActorName(name));
         }
     }
 
@@ -142,7 +142,7 @@ fn build_graph<'a>(
         debug!(" processing event[{:?}]...", event.id);
 
         let this_name = &event.id;
-        let after =
+        let prerequisites =
             resolve_event_ids(&idx_keys, &event.prerequisites).collect::<Result<Vec<_>, _>>()?;
 
         let this_key = match &event.kind {
@@ -273,7 +273,7 @@ fn build_graph<'a>(
             vertices.required.insert(this_key, required_to_be);
         }
 
-        if after.is_empty() {
+        if prerequisites.is_empty() {
             let should_be_a_new_element = vertices.entry_points.insert(this_key);
             assert!(
                 should_be_a_new_element,
@@ -281,7 +281,7 @@ fn build_graph<'a>(
                 this_key
             );
         }
-        for prerequisite in &after {
+        for prerequisite in &prerequisites {
             let should_be_a_new_element = vertices
                 .key_unblocks_values
                 .entry(*prerequisite)
