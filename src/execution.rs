@@ -14,7 +14,14 @@ use crate::{
 };
 
 mod build;
+mod report;
 mod runner;
+
+pub use build::BuildError;
+pub use build::ExecutableBuilder;
+pub use report::Report;
+pub use runner::RunError;
+pub use runner::Running;
 
 new_key_type! {
     pub struct KeyBind;
@@ -34,7 +41,7 @@ pub enum EventKey {
 }
 
 #[derive(Debug)]
-pub struct ExecutionGraph {
+pub struct Executable {
     messages: Messages,
     vertices: Events,
 }

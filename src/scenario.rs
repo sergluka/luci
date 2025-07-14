@@ -35,7 +35,7 @@ pub enum RequiredToBe {
     Unreached,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DefScenario {
+pub struct Scenario {
     #[serde(default)]
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub types: Vec<DefTypeAlias>,

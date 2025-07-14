@@ -1,7 +1,7 @@
 use luci::{
-    execution_graph::ExecutionGraph,
+    execution::Executable,
     messages::{Messages, Regular},
-    scenario::{DefScenario, RequiredToBe},
+    scenario::{RequiredToBe, Scenario},
 };
 use serde_json::json;
 
@@ -122,8 +122,8 @@ async fn run_scenario(scenario_text: &str) {
         .with(Regular::<crate::proto::Ping>)
         .with(Regular::<crate::proto::Pong>)
         .with(Regular::<crate::proto::Bye>);
-    let scenario: DefScenario = serde_yaml::from_str(scenario_text).unwrap();
-    let exec_graph = ExecutionGraph::builder(messages)
+    let scenario: Scenario = serde_yaml::from_str(scenario_text).unwrap();
+    let exec_graph = Executable::builder(messages)
         .build(&scenario)
         .expect("building graph");
     let report = exec_graph

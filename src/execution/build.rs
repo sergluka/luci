@@ -7,15 +7,15 @@ use slotmap::SlotMap;
 use tracing::{debug, trace};
 
 use crate::{
-    execution_graph::{EventKey, KeyBind, KeyDelay, KeyRecv, KeyRespond, KeySend, VertexBind},
+    execution::{EventKey, KeyBind, KeyDelay, KeyRecv, KeyRespond, KeySend, VertexBind},
     messages,
     scenario::{DefEventBind, DefEventDelay, DefEventRecv, DefEventRespond, DefEventSend},
 };
 use crate::{
-    execution_graph::{Events, ExecutionGraph, VertexDelay, VertexRecv, VertexRespond, VertexSend},
+    execution::{Events, Executable, VertexDelay, VertexRecv, VertexRespond, VertexSend},
     messages::Messages,
     names::{ActorName, EventName, MessageName},
-    scenario::{DefEvent, DefEventKind, DefScenario, DefTypeAlias},
+    scenario::{DefEvent, DefEventKind, DefTypeAlias, Scenario},
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -49,19 +49,19 @@ pub enum BuildError<'a> {
 }
 
 #[derive(Debug)]
-pub struct Builder {
+pub struct ExecutableBuilder {
     messages: Messages,
 }
 
-impl ExecutionGraph {
-    pub fn builder(messages: Messages) -> Builder {
+impl Executable {
+    pub fn builder(messages: Messages) -> ExecutableBuilder {
         debug!("created a builder");
-        Builder { messages }
+        ExecutableBuilder { messages }
     }
 }
 
-impl Builder {
-    pub fn build(self, scenario: &DefScenario) -> Result<ExecutionGraph, BuildError<'_>> {
+impl ExecutableBuilder {
+    pub fn build(self, scenario: &Scenario) -> Result<Executable, BuildError<'_>> {
         debug!("building...");
         let Self { messages } = self;
 
@@ -87,7 +87,7 @@ impl Builder {
         debug!("- delay-vertices:\t{}", vertices.delay.len());
 
         debug!("done!");
-        Ok(ExecutionGraph { messages, vertices })
+        Ok(Executable { messages, vertices })
     }
 }
 

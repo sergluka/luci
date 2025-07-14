@@ -5,20 +5,19 @@ use std::{
 
 use elfo::_priv::MessageKind;
 use elfo::{test::Proxy, Addr, Blueprint, Envelope, Message};
-use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::time::Duration;
 use tokio::time::Instant;
 use tracing::{debug, info, trace, warn};
 
 use crate::{
-    execution_graph::{
-        EventKey, ExecutionGraph, KeyDelay, KeyRecv, KeyRespond, KeySend, VertexBind, VertexDelay,
-        VertexRecv, VertexRespond, VertexSend,
+    execution::{
+        EventKey, Executable, KeyDelay, KeyRecv, KeyRespond, KeySend, Report, VertexBind,
+        VertexDelay, VertexRecv, VertexRespond, VertexSend,
     },
     messages,
     names::{ActorName, EventName},
-    scenario::{Msg, RequiredToBe},
+    scenario::Msg,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -72,14 +71,8 @@ impl TryFrom<ReadyEventKey> for EventKey {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Report {
-    pub reached: HashMap<EventName, RequiredToBe>,
-    pub unreached: HashMap<EventName, RequiredToBe>,
-}
-
-pub struct Runner<'a> {
-    graph: &'a ExecutionGraph,
+pub struct Running<'a> {
+    graph: &'a Executable,
 
     ready_events: BTreeSet<EventKey>,
     key_requires_values: HashMap<EventKey, HashSet<EventKey>>,
@@ -115,79 +108,17 @@ struct Dummies {
     excluded: HashSet<ActorName>,
 }
 
-impl Report {
-    pub fn is_ok(&self) -> bool {
-        self.reached
-            .iter()
-            .all(|(_, r)| matches!(r, RequiredToBe::Reached))
-            && self
-                .unreached
-                .iter()
-                .all(|(_, r)| matches!(r, RequiredToBe::Unreached))
-    }
-    pub fn message(&self) -> String {
-        let r_r = self
-            .reached
-            .iter()
-            .filter(|(_, r)| matches!(r, RequiredToBe::Reached))
-            .count();
-        let r_u = self
-            .reached
-            .iter()
-            .filter(|(_, r)| matches!(r, RequiredToBe::Unreached))
-            .count();
-        let u_r = self
-            .unreached
-            .iter()
-            .filter(|(_, r)| matches!(r, RequiredToBe::Reached))
-            .count();
-        let u_u = self
-            .unreached
-            .iter()
-            .filter(|(_, r)| matches!(r, RequiredToBe::Unreached))
-            .count();
-
-        let mut out = format!(
-            r#"
-Reached:
-    Ok:  {r_r}
-    Err: {r_u}
-Unreached:
-    Ok:  {u_u}
-    Err: {u_r}
-"#
-        );
-
-        for (e, _) in self
-            .unreached
-            .iter()
-            .filter(|(_, r)| matches!(r, RequiredToBe::Reached))
-        {
-            out.push_str(format!("! unreached {}\n", { e }).as_str());
-        }
-        for (e, _) in self
-            .reached
-            .iter()
-            .filter(|(_, r)| matches!(r, RequiredToBe::Unreached))
-        {
-            out.push_str(format!("! reached   {}\n", { e }).as_str());
-        }
-
-        out
-    }
-}
-
-impl ExecutionGraph {
-    pub async fn make_runner<C>(&self, blueprint: Blueprint, config: C) -> Runner<'_>
+impl Executable {
+    pub async fn make_runner<C>(&self, blueprint: Blueprint, config: C) -> Running<'_>
     where
         C: for<'de> serde::de::Deserializer<'de>,
     {
-        Runner::new(self, blueprint, config).await
+        Running::new(self, blueprint, config).await
     }
 }
 
-impl<'a> Runner<'a> {
-    pub async fn new<C>(graph: &'a ExecutionGraph, blueprint: Blueprint, config: C) -> Self
+impl<'a> Running<'a> {
+    pub async fn new<C>(graph: &'a Executable, blueprint: Blueprint, config: C) -> Self
     where
         C: for<'de> serde::de::Deserializer<'de>,
     {
@@ -238,10 +169,6 @@ impl<'a> Runner<'a> {
     pub async fn run(mut self) -> Result<Report, RunError> {
         let mut unreached = self.graph.vertices.required.clone();
         let mut reached = HashMap::new();
-        // loop {
-        //     let Some(event_key) = self.ready_events().next() else {
-        //         break;
-        //     };
 
         while let Some(event_key) = {
             // NOTE: if we do not introduce a variable `event_key_opt` here, the `self` would remain mutably borrowed.
@@ -347,7 +274,7 @@ impl<'a> Runner<'a> {
             debug!("doing {:?}", ready_event_key);
         }
 
-        let ExecutionGraph { messages, vertices } = self.graph;
+        let Executable { messages, vertices } = self.graph;
 
         let mut actually_fired_events = vec![];
         match ready_event_key {
