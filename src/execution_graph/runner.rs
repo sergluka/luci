@@ -237,11 +237,16 @@ impl<'a> Runner<'a> {
     pub async fn run(mut self) -> Result<Report, RunError> {
         let mut unreached = self.graph.vertices.required.clone();
         let mut reached = HashMap::new();
-        loop {
-            let Some(event_key) = self.ready_events().next() else {
-                break;
-            };
+        // loop {
+        //     let Some(event_key) = self.ready_events().next() else {
+        //         break;
+        //     };
 
+        while let Some(event_key) = {
+            // NOTE: if we do not introduce a variable `event_key_opt` here, the `self` would remain mutably borrowed.
+            let event_key_opt = self.ready_events().next();
+            event_key_opt
+        } {
             debug!("firing: {:?}", event_key);
 
             let fired_events = self.fire_event(event_key).await?;
