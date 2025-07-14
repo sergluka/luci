@@ -12,9 +12,7 @@ use crate::{
     scenario::{EventBind, EventDelay, EventRecv, EventRespond, EventSend},
 };
 use crate::{
-    execution_graph::{
-        ExecutionGraph, VertexDelay, VertexRecv, VertexRespond, VertexSend, Vertices,
-    },
+    execution_graph::{Events, ExecutionGraph, VertexDelay, VertexRecv, VertexRespond, VertexSend},
     messages::Messages,
     scenario::{ActorName, EventDef, EventKind, EventName, MessageName, Scenario, TypeAlias},
 };
@@ -131,7 +129,7 @@ fn build_graph<'a>(
     type_aliases: &HashMap<MessageName, Arc<str>>,
     actors: &HashSet<ActorName>,
     _messages: &Messages,
-) -> Result<Vertices, BuildError<'a>> {
+) -> Result<Events, BuildError<'a>> {
     let mut v_delay = SlotMap::<KeyDelay, _>::default();
     let mut v_bind = SlotMap::<KeyBind, _>::default();
     let mut v_recv = SlotMap::<KeyRecv, _>::default();
@@ -314,7 +312,7 @@ fn build_graph<'a>(
         .map(|(n, id)| (id, n.to_owned()))
         .collect();
 
-    let vertices = Vertices {
+    let vertices = Events {
         priority,
         required,
         names,

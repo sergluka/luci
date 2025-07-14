@@ -35,11 +35,11 @@ pub enum EventKey {
 #[derive(Debug)]
 pub struct ExecutionGraph {
     messages: Messages,
-    vertices: Vertices,
+    vertices: Events,
 }
 
 #[derive(Debug, Default)]
-struct Vertices {
+struct Events {
     priority: HashMap<EventKey, usize>,
     required: HashMap<EventKey, RequiredToBe>,
     names: HashMap<EventKey, EventName>,
