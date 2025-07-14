@@ -292,7 +292,7 @@ fn build_graph<'a>(
         trace!("  done: {:?} -> {:?}", this_name, this_key);
 
         priority.push(this_key);
-        if let Some(_conflicting_key) = idx_keys.insert(this_name, this_key) {
+        if idx_keys.insert(this_name, this_key).is_some() {
             return Err(BuildError::DuplicateEventName(&event.id));
         }
     }
