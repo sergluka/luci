@@ -1,12 +1,13 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeSet, HashMap, HashSet},
     sync::Arc,
 };
 
+use slotmap::SlotMap;
 use tracing::{debug, trace};
 
 use crate::{
-    execution_graph::{EventKey, VertexBind},
+    execution_graph::{EventKey, KeyBind, KeyDelay, KeyRecv, KeyRespond, KeySend, VertexBind},
     messages,
     scenario::{EventBind, EventDelay, EventRecv, EventRespond, EventSend},
 };
@@ -131,8 +132,15 @@ fn build_graph<'a>(
     actors: &HashSet<ActorName>,
     _messages: &Messages,
 ) -> Result<Vertices, BuildError<'a>> {
-    let mut vertices: Vertices = Default::default();
+    let mut v_delay = SlotMap::<KeyDelay, _>::default();
+    let mut v_bind = SlotMap::<KeyBind, _>::default();
+    let mut v_recv = SlotMap::<KeyRecv, _>::default();
+    let mut v_send = SlotMap::<KeySend, _>::default();
+    let mut v_respond = SlotMap::<KeyRespond, _>::default();
 
+    let mut entry_points = BTreeSet::new();
+    let mut key_unblocks_values = HashMap::<_, BTreeSet<_>>::new();
+    let mut required = HashMap::new();
     let mut idx_keys = HashMap::new();
 
     let mut priority = vec![];
@@ -154,7 +162,7 @@ fn build_graph<'a>(
                 let delay_for = *delay_for;
                 let delay_step = *delay_step;
 
-                let key = vertices.delay.insert(VertexDelay {
+                let key = v_delay.insert(VertexDelay {
                     delay_for,
                     delay_step,
                 });
@@ -169,7 +177,7 @@ fn build_graph<'a>(
                 } = def_bind;
                 let dst = dst.clone();
                 let src = src.clone();
-                let key = vertices.bind.insert(VertexBind { dst, src });
+                let key = v_bind.insert(VertexBind { dst, src });
 
                 EventKey::Bind(key)
             }
@@ -193,7 +201,7 @@ fn build_graph<'a>(
                     }
                 }
 
-                let key = vertices.recv.insert(VertexRecv {
+                let key = v_recv.insert(VertexRecv {
                     from: from.clone(),
                     to: to.clone(),
                     fqn: type_fqn,
@@ -221,7 +229,7 @@ fn build_graph<'a>(
                     }
                 }
 
-                let key = vertices.send.insert(VertexSend {
+                let key = v_send.insert(VertexSend {
                     from: from.clone(),
                     to: to.clone(),
                     fqn: type_fqn,
@@ -241,8 +249,7 @@ fn build_graph<'a>(
                 let EventKey::Recv(recv_key) = causing_event_key else {
                     return Err(BuildError::NotARequest(&to));
                 };
-                let request_fqn = vertices
-                    .recv.get(*recv_key)
+                let request_fqn = v_recv.get(*recv_key)
                     .expect("we do not delete items from `recv`; neither we store keys that are unrelated to our collections")
                     .fqn.clone();
 
@@ -253,7 +260,7 @@ fn build_graph<'a>(
                     return Err(BuildError::UnknownActor(bad_actor));
                 }
 
-                let key = vertices.respond.insert(VertexRespond {
+                let key = v_respond.insert(VertexRespond {
                     respond_to: *recv_key,
                     request_type: request_fqn,
                     respond_from: from.clone(),
@@ -264,11 +271,11 @@ fn build_graph<'a>(
         };
 
         if let Some(required_to_be) = event.require {
-            vertices.required.insert(this_key, required_to_be);
+            required.insert(this_key, required_to_be);
         }
 
         if prerequisites.is_empty() {
-            let should_be_a_new_element = vertices.entry_points.insert(this_key);
+            let should_be_a_new_element = entry_points.insert(this_key);
             assert!(
                 should_be_a_new_element,
                 "non unique entry point? {:?}",
@@ -276,8 +283,7 @@ fn build_graph<'a>(
             );
         }
         for prerequisite in &prerequisites {
-            let should_be_a_new_element = vertices
-                .key_unblocks_values
+            let should_be_a_new_element = key_unblocks_values
                 .entry(*prerequisite)
                 .or_default()
                 .insert(this_key);
@@ -297,16 +303,29 @@ fn build_graph<'a>(
         }
     }
 
-    vertices.priority = priority
+    let priority = priority
         .into_iter()
         .enumerate()
         .map(|(p, k)| (k, p))
         .collect();
 
-    vertices.names = idx_keys
+    let names = idx_keys
         .into_iter()
         .map(|(n, id)| (id, n.to_owned()))
         .collect();
+
+    let vertices = Vertices {
+        priority,
+        required,
+        names,
+        bind: v_bind,
+        send: v_send,
+        recv: v_recv,
+        respond: v_respond,
+        delay: v_delay,
+        entry_points,
+        key_unblocks_values,
+    };
 
     Ok(vertices)
 }
