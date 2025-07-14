@@ -78,14 +78,7 @@ impl Messages {
     where
         S: SupportedMessage,
     {
-        self.add(supported);
-        self
-    }
-    pub fn add<S>(&mut self, supported: S) -> &mut Self
-    where
-        S: SupportedMessage,
-    {
-        supported.register(self);
+        supported.register(&mut self);
         self
     }
 
