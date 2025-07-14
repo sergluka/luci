@@ -25,7 +25,7 @@ pub struct EventName(Arc<str>);
 pub struct MessageName(Arc<str>);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TypeAlias {
+pub struct DefTypeAlias {
     #[serde(rename = "use")]
     pub type_name: String,
     #[serde(rename = "as")]
@@ -51,19 +51,19 @@ pub enum RequiredToBe {
     Unreached,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Scenario {
+pub struct DefScenario {
     #[serde(default)]
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub types: Vec<TypeAlias>,
+    pub types: Vec<DefTypeAlias>,
     pub cast: Vec<ActorName>,
-    pub events: Vec<EventDef>,
+    pub events: Vec<DefEvent>,
 
     #[serde(flatten)]
     pub no_extra: NoExtra,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EventDef {
+pub struct DefEvent {
     pub id: EventName,
 
     #[serde(default)]
@@ -77,7 +77,7 @@ pub struct EventDef {
     pub prerequisites: Vec<EventName>,
 
     #[serde(flatten)]
-    pub kind: EventKind,
+    pub kind: DefEventKind,
 
     #[serde(flatten)]
     pub no_extra: NoExtra,
@@ -85,16 +85,16 @@ pub struct EventDef {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum EventKind {
-    Bind(EventBind),
-    Recv(EventRecv),
-    Send(EventSend),
-    Respond(EventRespond),
-    Delay(EventDelay),
+pub enum DefEventKind {
+    Bind(DefEventBind),
+    Recv(DefEventRecv),
+    Send(DefEventSend),
+    Respond(DefEventRespond),
+    Delay(DefEventDelay),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EventBind {
+pub struct DefEventBind {
     pub dst: Value,
     pub src: Msg,
 
@@ -103,7 +103,7 @@ pub struct EventBind {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EventRecv {
+pub struct DefEventRecv {
     #[serde(rename = "type")]
     pub message_type: MessageName,
     #[serde(rename = "data")]
@@ -120,7 +120,7 @@ pub struct EventRecv {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EventSend {
+pub struct DefEventSend {
     pub from: ActorName,
 
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -136,7 +136,7 @@ pub struct EventSend {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EventRespond {
+pub struct DefEventRespond {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub from: Option<ActorName>,
 
@@ -148,7 +148,7 @@ pub struct EventRespond {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EventDelay {
+pub struct DefEventDelay {
     #[serde(with = "humantime_serde")]
     #[serde(rename = "for")]
     pub delay_for: Duration,

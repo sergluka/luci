@@ -9,12 +9,12 @@ use tracing::{debug, trace};
 use crate::{
     execution_graph::{EventKey, KeyBind, KeyDelay, KeyRecv, KeyRespond, KeySend, VertexBind},
     messages,
-    scenario::{EventBind, EventDelay, EventRecv, EventRespond, EventSend},
+    scenario::{DefEventBind, DefEventDelay, DefEventRecv, DefEventRespond, DefEventSend},
 };
 use crate::{
     execution_graph::{Events, ExecutionGraph, VertexDelay, VertexRecv, VertexRespond, VertexSend},
     messages::Messages,
-    scenario::{ActorName, EventDef, EventKind, EventName, MessageName, Scenario, TypeAlias},
+    scenario::{ActorName, DefEvent, DefEventKind, EventName, MessageName, DefScenario, DefTypeAlias},
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -60,7 +60,7 @@ impl ExecutionGraph {
 }
 
 impl Builder {
-    pub fn build(self, scenario: &Scenario) -> Result<ExecutionGraph, BuildError<'_>> {
+    pub fn build(self, scenario: &DefScenario) -> Result<ExecutionGraph, BuildError<'_>> {
         debug!("building...");
         let Self { messages } = self;
 
@@ -92,7 +92,7 @@ impl Builder {
 
 fn type_aliases<'a>(
     messages: &Messages,
-    imports: impl IntoIterator<Item = &'a TypeAlias>,
+    imports: impl IntoIterator<Item = &'a DefTypeAlias>,
 ) -> Result<HashMap<MessageName, Arc<str>>, BuildError<'a>> {
     use std::collections::hash_map::Entry::Vacant;
     let mut aliases = HashMap::new();
@@ -125,7 +125,7 @@ fn validate_actor_names<'a>(
 }
 
 fn build_graph<'a>(
-    event_defs: impl IntoIterator<Item = &'a EventDef>,
+    event_defs: impl IntoIterator<Item = &'a DefEvent>,
     type_aliases: &HashMap<MessageName, Arc<str>>,
     actors: &HashSet<ActorName>,
     _messages: &Messages,
@@ -151,8 +151,8 @@ fn build_graph<'a>(
             resolve_event_ids(&idx_keys, &event.prerequisites).collect::<Result<Vec<_>, _>>()?;
 
         let this_key = match &event.kind {
-            EventKind::Delay(def_delay) => {
-                let EventDelay {
+            DefEventKind::Delay(def_delay) => {
+                let DefEventDelay {
                     delay_for,
                     delay_step,
                     no_extra: _,
@@ -167,8 +167,8 @@ fn build_graph<'a>(
                 EventKey::Delay(key)
             }
 
-            EventKind::Bind(def_bind) => {
-                let EventBind {
+            DefEventKind::Bind(def_bind) => {
+                let DefEventBind {
                     dst,
                     src,
                     no_extra: _,
@@ -179,8 +179,8 @@ fn build_graph<'a>(
 
                 EventKey::Bind(key)
             }
-            EventKind::Recv(def_recv) => {
-                let EventRecv {
+            DefEventKind::Recv(def_recv) => {
+                let DefEventRecv {
                     message_type,
                     message_data,
                     from,
@@ -207,8 +207,8 @@ fn build_graph<'a>(
                 });
                 EventKey::Recv(key)
             }
-            EventKind::Send(def_send) => {
-                let EventSend {
+            DefEventKind::Send(def_send) => {
+                let DefEventSend {
                     from,
                     to,
                     message_type,
@@ -235,8 +235,8 @@ fn build_graph<'a>(
                 });
                 EventKey::Send(key)
             }
-            EventKind::Respond(def_respond) => {
-                let EventRespond {
+            DefEventKind::Respond(def_respond) => {
+                let DefEventRespond {
                     from,
                     to,
                     data,
