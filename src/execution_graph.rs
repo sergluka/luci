@@ -34,7 +34,7 @@ pub enum EventKey {
 
 #[derive(Debug)]
 pub struct ExecutionGraph {
-    messages: Arc<Messages>,
+    messages: Messages,
     vertices: Vertices,
 }
 

@@ -64,7 +64,6 @@ impl Builder {
     pub fn build(self, scenario: &Scenario) -> Result<ExecutionGraph, BuildError<'_>> {
         debug!("building...");
         let Self { messages } = self;
-        let messages = Arc::new(messages);
 
         debug!("storing type-aliases...");
         let type_aliases = type_aliases(&messages, &scenario.types)?;

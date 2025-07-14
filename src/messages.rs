@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
 use elfo::{test::Proxy, AnyMessage, AnyMessageRef, Envelope, ResponseToken};
 use futures::{future::LocalBoxFuture, FutureExt};
@@ -52,13 +52,13 @@ pub trait Marshal {
     fn response(&self) -> Option<&dyn DynRespond>;
 }
 
-pub trait Respond<'a>: Marshal {
+pub trait Respond<'a> {
     fn respond(
         &self,
         proxy: &'a mut Proxy,
         token: ResponseToken,
-        messages: Arc<Messages>,
-        bindings: HashMap<String, Value>,
+        messages: &'a Messages,
+        bindings: &'a HashMap<String, Value>,
         value: Msg,
     ) -> LocalBoxFuture<'a, Result<(), AnError>>;
 }
@@ -326,8 +326,8 @@ where
         &self,
         proxy: &'a mut Proxy,
         token: ResponseToken,
-        messages: Arc<Messages>,
-        bindings: HashMap<String, Value>,
+        messages: &'a Messages,
+        bindings: &'a HashMap<String, Value>,
         value: Msg,
     ) -> LocalBoxFuture<'a, Result<(), AnError>> {
         async move {

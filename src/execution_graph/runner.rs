@@ -510,12 +510,11 @@ impl<'a> Runner<'a> {
 
                 let responding_proxy = &mut self.proxies[proxy_idx];
                 response_marshaller
-                    // XXX: bindings.clone() — tsk tsk tsk
                     .respond(
                         responding_proxy,
                         token,
-                        messages.clone(),
-                        self.bindings.clone(),
+                        &messages,
+                        &self.bindings,
                         message_data.clone(),
                     )
                     .await
