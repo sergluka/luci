@@ -120,7 +120,7 @@ impl Executable {
 
 impl<'a> Running<'a> {
     pub async fn run(mut self) -> Result<Report, RunError> {
-        let mut unreached = self.graph.vertices.required.clone();
+        let mut unreached = self.graph.events.required.clone();
         let mut reached = HashMap::new();
 
         while let Some(event_key) = {
@@ -189,7 +189,7 @@ impl<'a> Running<'a> {
     }
 
     pub fn event_name(&self, event_key: EventKey) -> Option<&EventName> {
-        self.graph.vertices.names.get(&event_key)
+        self.graph.events.names.get(&event_key)
     }
 
     pub async fn fire_event(
@@ -216,7 +216,7 @@ impl<'a> Running<'a> {
         if let Some(event_key) = event_key_opt {
             let event_name = self
                 .graph
-                .vertices
+                .events
                 .names
                 .get(&event_key)
                 .expect("invalid event-key in ready-events?");
@@ -255,7 +255,9 @@ impl<'a> Running<'a> {
     ) {
         use std::collections::hash_map::Entry::Occupied;
 
-        let Executable { vertices, .. } = self.graph;
+        let Executable {
+            events: vertices, ..
+        } = self.graph;
         for fired_event in actually_fired_events.into_iter() {
             if let Some(ds) = vertices.key_unblocks_values.get(&fired_event) {
                 for d in ds.iter().copied() {
@@ -285,7 +287,10 @@ impl<'a> Running<'a> {
         &mut self,
         actually_fired_events: &mut Vec<EventKey>,
     ) -> Result<(), RunError> {
-        let Executable { messages, vertices } = self.graph;
+        let Executable {
+            messages,
+            events: vertices,
+        } = self.graph;
 
         let ready_bind_keys = {
             let mut tmp = self
@@ -359,7 +364,10 @@ impl<'a> Running<'a> {
         &mut self,
         actually_fired_events: &mut Vec<EventKey>,
     ) -> Result<(), RunError> {
-        let Executable { messages, vertices } = self.graph;
+        let Executable {
+            messages,
+            events: vertices,
+        } = self.graph;
 
         'recv_or_delay: loop {
             for p in self.proxies.iter_mut() {
@@ -539,7 +547,10 @@ impl<'a> Running<'a> {
         event_key: KeySend,
         actually_fired_events: &mut Vec<EventKey>,
     ) -> Result<(), RunError> {
-        let Executable { messages, vertices } = self.graph;
+        let Executable {
+            messages,
+            events: vertices,
+        } = self.graph;
         let VertexSend {
             from: send_from,
             to: send_to,
@@ -604,7 +615,10 @@ impl<'a> Running<'a> {
         k: KeyRespond,
         actually_fired_events: &mut Vec<EventKey>,
     ) -> Result<(), RunError> {
-        let Executable { messages, vertices } = self.graph;
+        let Executable {
+            messages,
+            events: vertices,
+        } = self.graph;
 
         let VertexRespond {
             respond_to,
@@ -671,17 +685,17 @@ impl<'a> Running<'a> {
         let proxies = vec![elfo::test::proxy(blueprint, config).await];
         let mut delays = Delays::default();
 
-        let ready_events = graph.vertices.entry_points.clone();
+        let ready_events = graph.events.entry_points.clone();
 
         let now = Instant::now();
         ready_events.iter().copied().for_each(|k| {
             if let EventKey::Delay(k) = k {
-                delays.insert(now, k, &graph.vertices.delay[k]);
+                delays.insert(now, k, &graph.events.delay[k]);
             }
         });
 
         let key_requires_values = graph
-            .vertices
+            .events
             .key_unblocks_values
             .iter()
             .flat_map(|(&prereq, dependants)| {

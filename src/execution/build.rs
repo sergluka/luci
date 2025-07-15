@@ -87,7 +87,10 @@ impl ExecutableBuilder {
         debug!("- delay-vertices:\t{}", vertices.delay.len());
 
         debug!("done!");
-        Ok(Executable { messages, vertices })
+        Ok(Executable {
+            messages,
+            events: vertices,
+        })
     }
 }
 
