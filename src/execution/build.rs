@@ -252,9 +252,6 @@ fn build_graph<'a>(
                     .expect("we do not delete items from `recv`; neither we store keys that are unrelated to our collections")
                     .fqn.clone();
 
-                // TODO: 1. Check whether the `request_fqn` is a request.
-                // TODO: 2. Try actually marshalling this value using `request_fqn`.
-
                 if let Some(bad_actor) = from.as_ref().filter(|a| !actors.contains(a)) {
                     return Err(BuildError::UnknownActor(bad_actor));
                 }
