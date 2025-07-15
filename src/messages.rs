@@ -1,10 +1,9 @@
 use std::collections::HashMap;
 
-use elfo::{test::Proxy, AnyMessage, AnyMessageRef, Envelope, ResponseToken};
+use elfo::{test::Proxy, AnyMessage, AnyMessageRef, Envelope, Message, ResponseToken};
 use futures::{future::LocalBoxFuture, FutureExt};
 use ghost::phantom;
 use serde_json::Value;
-use tracing::trace;
 
 use crate::scenario::Msg;
 
@@ -122,66 +121,18 @@ where
             return None;
         }
 
-        fn extract_message_payload(envelope: &Envelope) -> Option<Value> {
-            let mut message_parts = serde_json::to_value(envelope.message()).ok()?;
-            let &mut [ref mut _proto, ref mut _name, ref mut payload] =
-                &mut message_parts.as_array_mut()?[..]
-            else {
-                return None;
-            };
-            let payload = std::mem::take(payload);
-            Some(payload)
-        }
-
         let serialized = extract_message_payload(envelope)
             .expect("AnyMessage has changed serialization format?");
 
-        trace!("      serialized: {:?}", serialized);
-        trace!("      bind-to: {:?}", bind_to);
-
-        match bind_to {
-            Msg::Literal(value) => {
-                if serialized == *value {
-                    Some(Default::default())
-                } else {
-                    None
-                }
-            }
-            Msg::Bind(pattern) => {
-                let mut bindings = Default::default();
-                if bind_to_pattern(serialized, pattern, &mut bindings) {
-                    Some(bindings.into_iter().collect())
-                } else {
-                    None
-                }
-            }
-
-            Msg::Inject(_name) => Some(Default::default()),
-        }
+        do_bind(bind_to, serialized)
     }
     fn marshall(
         &self,
         messages: &Messages,
         bindings: &HashMap<String, Value>,
-        value: Msg,
+        msg: Msg,
     ) -> Result<AnyMessage, AnError> {
-        match value {
-            Msg::Bind(template) => {
-                let value = render(template, bindings)?;
-                let m: M = serde_json::from_value(value)?;
-                let a = AnyMessage::new(m);
-                Ok(a)
-            }
-            Msg::Inject(name) => {
-                let a = messages.values.get(&name).cloned().ok_or("no such value")?;
-                Ok(a)
-            }
-            Msg::Literal(value) => {
-                let m: M = serde_json::from_value(value)?;
-                let a = AnyMessage::new(m);
-                Ok(a)
-            }
-        }
+        do_marshal::<M>(messages, bindings, msg)
     }
     fn response(&self) -> Option<&'static dyn DynRespond> {
         None
@@ -197,57 +148,18 @@ where
             return None;
         }
 
-        let Value::Array(mut triple) = serde_json::to_value(envelope.message()).ok()? else {
-            panic!("AnyMessage has changed serialization format?")
-        };
-        let serialized = std::mem::take(&mut triple[2]);
+        let serialized = extract_message_payload(envelope)
+            .expect("AnyMessage has changed serialization format?");
 
-        trace!("      serialized: {:?}", serialized);
-        trace!("      bind-to: {:?}", bind_to);
-
-        match bind_to {
-            Msg::Literal(value) => {
-                if serialized == *value {
-                    Some(Default::default())
-                } else {
-                    None
-                }
-            }
-            Msg::Bind(pattern) => {
-                let mut bindings = Default::default();
-                if bind_to_pattern(serialized, pattern, &mut bindings) {
-                    Some(bindings.into_iter().collect())
-                } else {
-                    None
-                }
-            }
-
-            Msg::Inject(_name) => Some(Default::default()),
-        }
+        do_bind(bind_to, serialized)
     }
     fn marshall(
         &self,
         messages: &Messages,
         bindings: &HashMap<String, Value>,
-        value: Msg,
+        msg: Msg,
     ) -> Result<AnyMessage, AnError> {
-        match value {
-            Msg::Bind(template) => {
-                let value = render(template, bindings)?;
-                let m: Rq::Wrapper = serde_json::from_value(value)?;
-                let a = AnyMessage::new(m);
-                Ok(a)
-            }
-            Msg::Inject(name) => {
-                let a = messages.values.get(&name).cloned().ok_or("no such value")?;
-                Ok(a)
-            }
-            Msg::Literal(value) => {
-                let m: Rq::Wrapper = serde_json::from_value(value)?;
-                let a = AnyMessage::new(m);
-                Ok(a)
-            }
-        }
+        do_marshal::<Rq::Wrapper>(messages, bindings, msg)
     }
     fn response(&self) -> Option<&'static dyn DynRespond> {
         Some(&Response::<Rq>)
@@ -304,6 +216,65 @@ where
         .boxed_local()
     }
 }
+
+fn extract_message_payload(envelope: &Envelope) -> Option<Value> {
+    let mut message_parts = serde_json::to_value(envelope.message()).ok()?;
+    let &mut [ref mut _proto, ref mut _name, ref mut payload] =
+        &mut message_parts.as_array_mut()?[..]
+    else {
+        return None;
+    };
+    let payload = std::mem::take(payload);
+    Some(payload)
+}
+
+fn do_bind(bind_to: &Msg, serialized: Value) -> Option<Vec<(String, Value)>> {
+    match bind_to {
+        Msg::Literal(value) => {
+            if serialized == *value {
+                Some(Default::default())
+            } else {
+                None
+            }
+        }
+        Msg::Bind(pattern) => {
+            let mut bindings = Default::default();
+            if bind_to_pattern(serialized, pattern, &mut bindings) {
+                Some(bindings.into_iter().collect())
+            } else {
+                None
+            }
+        }
+
+        Msg::Inject(_name) => Some(Default::default()),
+    }
+}
+
+fn do_marshal<M: Message>(
+    messages: &Messages,
+    bindings: &HashMap<String, Value>,
+    msg: Msg,
+) -> Result<AnyMessage, AnError> {
+    match msg {
+        Msg::Bind(template) => {
+            let value = render(template, bindings)?;
+            let m: M = serde_json::from_value(value)?;
+            let a = AnyMessage::new(m);
+            Ok(a)
+        }
+        Msg::Inject(name) => {
+            let a = messages.values.get(&name).cloned().ok_or("no such value")?;
+            Ok(a)
+        }
+        Msg::Literal(value) => {
+            let m: M = serde_json::from_value(value)?;
+            let a = AnyMessage::new(m);
+            Ok(a)
+        }
+    }
+}
+
+// ------
 
 pub fn bind_to_pattern(
     value: Value,
