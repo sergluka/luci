@@ -161,7 +161,9 @@ impl<'a> Runner<'a> {
         Ok(Report { reached, unreached })
     }
 
-    pub fn ready_events(&self) -> impl Iterator<Item = ReadyEventKey> + '_ {
+    // #[doc(hidden)]
+    // pub 
+    fn ready_events(&self) -> impl Iterator<Item = ReadyEventKey> + '_ {
         let binds = self
             .ready_events
             .iter()
@@ -191,7 +193,9 @@ impl<'a> Runner<'a> {
         self.executable.events.names.get(&event_key)
     }
 
-    pub async fn fire_event(
+    // #[doc(hidden)]
+    // pub 
+    async fn fire_event(
         &mut self,
         ready_event_key: ReadyEventKey,
     ) -> Result<Vec<EventKey>, RunError> {
