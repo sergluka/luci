@@ -71,7 +71,7 @@ impl TryFrom<ReadyEventKey> for EventKey {
     }
 }
 
-pub struct Running<'a> {
+pub struct Runner<'a> {
     executable: &'a Executable,
 
     ready_events: BTreeSet<EventKey>,
@@ -109,15 +109,15 @@ struct Dummies {
 }
 
 impl Executable {
-    pub async fn start<C>(&self, blueprint: Blueprint, config: C) -> Running<'_>
+    pub async fn start<C>(&self, blueprint: Blueprint, config: C) -> Runner<'_>
     where
         C: for<'de> serde::de::Deserializer<'de>,
     {
-        Running::new(self, blueprint, config).await
+        Runner::new(self, blueprint, config).await
     }
 }
 
-impl<'a> Running<'a> {
+impl<'a> Runner<'a> {
     pub async fn run(mut self) -> Result<Report, RunError> {
         let mut unreached = self.executable.events.required.clone();
         let mut reached = HashMap::new();
@@ -247,7 +247,7 @@ impl<'a> Running<'a> {
     }
 }
 
-impl<'a> Running<'a> {
+impl<'a> Runner<'a> {
     fn process_dependencies_of_fired_events(
         &mut self,
         actually_fired_events: impl IntoIterator<Item = EventKey>,
@@ -676,7 +676,7 @@ impl<'a> Running<'a> {
     }
 }
 
-impl<'a> Running<'a> {
+impl<'a> Runner<'a> {
     async fn new<C>(graph: &'a Executable, blueprint: Blueprint, config: C) -> Self
     where
         C: for<'de> serde::de::Deserializer<'de>,

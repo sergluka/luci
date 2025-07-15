@@ -21,7 +21,7 @@ pub use build::BuildError;
 pub use build::ExecutableBuilder;
 pub use report::Report;
 pub use runner::RunError;
-pub use runner::Running;
+pub use runner::Runner;
 
 new_key_type! {
     pub struct KeyBind;

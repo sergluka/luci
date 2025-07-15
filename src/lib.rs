@@ -4,7 +4,7 @@
 //!
 //! We compile scenarios into [executables](crate::execution::Executable).
 //!
-//! We [run executables](crate::execution::Running) to get [reports](crate::execution::Report).
+//! We [run executables](crate::execution::Runner) to get [reports](crate::execution::Report).
 
 pub mod execution;
 pub mod messages;
