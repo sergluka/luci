@@ -51,11 +51,11 @@ struct Events {
     required: HashMap<EventKey, RequiredToBe>,
     names: HashMap<EventKey, EventName>,
 
-    bind: SlotMap<KeyBind, VertexBind>,
-    send: SlotMap<KeySend, VertexSend>,
-    recv: SlotMap<KeyRecv, VertexRecv>,
-    respond: SlotMap<KeyRespond, VertexRespond>,
-    delay: SlotMap<KeyDelay, VertexDelay>,
+    bind: SlotMap<KeyBind, EventBind>,
+    send: SlotMap<KeySend, EventSend>,
+    recv: SlotMap<KeyRecv, EventRecv>,
+    respond: SlotMap<KeyRespond, EventRespond>,
+    delay: SlotMap<KeyDelay, EventDelay>,
 
     entry_points: BTreeSet<EventKey>,
 
@@ -63,7 +63,7 @@ struct Events {
 }
 
 #[derive(Debug)]
-struct VertexSend {
+struct EventSend {
     from: ActorName,
     to: Option<ActorName>,
     fqn: Arc<str>,
@@ -71,7 +71,7 @@ struct VertexSend {
 }
 
 #[derive(Debug)]
-struct VertexRecv {
+struct EventRecv {
     from: Option<ActorName>,
     to: Option<ActorName>,
     fqn: Arc<str>,
@@ -79,7 +79,7 @@ struct VertexRecv {
 }
 
 #[derive(Debug)]
-struct VertexRespond {
+struct EventRespond {
     respond_to: KeyRecv,
     request_type: Arc<str>,
     respond_from: Option<ActorName>,
@@ -87,13 +87,13 @@ struct VertexRespond {
 }
 
 #[derive(Debug)]
-struct VertexBind {
+struct EventBind {
     dst: Value,
     src: Msg,
 }
 
 #[derive(Debug)]
-struct VertexDelay {
+struct EventDelay {
     delay_for: Duration,
     delay_step: Duration,
 }

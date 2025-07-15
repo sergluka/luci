@@ -12,8 +12,8 @@ use tracing::{debug, info, trace, warn};
 
 use crate::{
     execution::{
-        EventKey, Executable, KeyDelay, KeyRecv, KeyRespond, KeySend, Report, VertexBind,
-        VertexDelay, VertexRecv, VertexRespond, VertexSend,
+        EventBind, EventDelay, EventKey, EventRecv, EventRespond, EventSend, Executable, KeyDelay,
+        KeyRecv, KeyRespond, KeySend, Report,
     },
     messages,
     names::{ActorName, EventName},
@@ -313,7 +313,7 @@ impl<'a> Runner<'a> {
             self.ready_events.remove(&EventKey::Bind(bind_key));
 
             trace!(" binding {:?}", bind_key);
-            let VertexBind { dst, src } = &vertices.bind[bind_key];
+            let EventBind { dst, src } = &vertices.bind[bind_key];
 
             let value = match src {
                 Msg::Literal(value) => value.clone(),
@@ -418,7 +418,7 @@ impl<'a> Runner<'a> {
                         recv_key,
                         vertices.names.get(&EventKey::Recv(recv_key)).unwrap()
                     );
-                    let VertexRecv {
+                    let EventRecv {
                         fqn: match_type,
                         from: match_from,
                         to: match_to,
@@ -550,7 +550,7 @@ impl<'a> Runner<'a> {
             messages,
             events: vertices,
         } = self.executable;
-        let VertexSend {
+        let EventSend {
             from: send_from,
             to: send_to,
             fqn: message_type,
@@ -619,7 +619,7 @@ impl<'a> Runner<'a> {
             events: vertices,
         } = self.executable;
 
-        let VertexRespond {
+        let EventRespond {
             respond_to,
             request_type: request_fqn,
             respond_from,
@@ -886,7 +886,7 @@ impl Delays {
         (effective_deadline, expired)
     }
 
-    pub fn insert(&mut self, now: Instant, key: KeyDelay, delay_vertex: &VertexDelay) {
+    pub fn insert(&mut self, now: Instant, key: KeyDelay, delay_vertex: &EventDelay) {
         let delay_for = delay_vertex.delay_for;
         let step = delay_vertex.delay_step;
 

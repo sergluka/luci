@@ -7,12 +7,12 @@ use slotmap::SlotMap;
 use tracing::{debug, trace};
 
 use crate::{
-    execution::{EventKey, KeyBind, KeyDelay, KeyRecv, KeyRespond, KeySend, VertexBind},
+    execution::{EventBind, EventKey, KeyBind, KeyDelay, KeyRecv, KeyRespond, KeySend},
     messages,
     scenario::{DefEventBind, DefEventDelay, DefEventRecv, DefEventRespond, DefEventSend},
 };
 use crate::{
-    execution::{Events, Executable, VertexDelay, VertexRecv, VertexRespond, VertexSend},
+    execution::{EventDelay, EventRecv, EventRespond, EventSend, Events, Executable},
     messages::Messages,
     names::{ActorName, EventName, MessageName},
     scenario::{DefEvent, DefEventKind, DefTypeAlias, Scenario},
@@ -151,7 +151,7 @@ fn build_graph<'a>(
                 let delay_for = *delay_for;
                 let delay_step = *delay_step;
 
-                let key = v_delay.insert(VertexDelay {
+                let key = v_delay.insert(EventDelay {
                     delay_for,
                     delay_step,
                 });
@@ -166,7 +166,7 @@ fn build_graph<'a>(
                 } = def_bind;
                 let dst = dst.clone();
                 let src = src.clone();
-                let key = v_bind.insert(VertexBind { dst, src });
+                let key = v_bind.insert(EventBind { dst, src });
 
                 EventKey::Bind(key)
             }
@@ -190,7 +190,7 @@ fn build_graph<'a>(
                     }
                 }
 
-                let key = v_recv.insert(VertexRecv {
+                let key = v_recv.insert(EventRecv {
                     from: from.clone(),
                     to: to.clone(),
                     fqn: type_fqn,
@@ -218,7 +218,7 @@ fn build_graph<'a>(
                     }
                 }
 
-                let key = v_send.insert(VertexSend {
+                let key = v_send.insert(EventSend {
                     from: from.clone(),
                     to: to.clone(),
                     fqn: type_fqn,
@@ -253,7 +253,7 @@ fn build_graph<'a>(
                     return Err(BuildError::NotARequest(&to));
                 }
 
-                let key = v_respond.insert(VertexRespond {
+                let key = v_respond.insert(EventRespond {
                     respond_to: *recv_key,
                     request_type: request_fqn,
                     respond_from: from.clone(),
