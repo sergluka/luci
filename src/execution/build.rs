@@ -60,8 +60,8 @@ impl Executable {
 
         debug!("checking actor-names...");
         let actors = validate_actor_names(&scenario.cast)?;
-        for a in &actors {
-            trace!("- {:?}", a);
+        for actor_name in &actors {
+            trace!("- {:?}", actor_name);
         }
 
         debug!("building the graph...");
@@ -184,9 +184,9 @@ fn build_graph<'a>(
                     .cloned()
                     .ok_or(BuildError::UnknownAlias(&message_type))?;
 
-                for a in to.as_ref().into_iter().chain(from) {
-                    if !actors.contains(a) {
-                        return Err(BuildError::UnknownActor(a));
+                for actor_name in to.as_ref().into_iter().chain(from) {
+                    if !actors.contains(actor_name) {
+                        return Err(BuildError::UnknownActor(actor_name));
                     }
                 }
 
@@ -212,9 +212,9 @@ fn build_graph<'a>(
                     .cloned()
                     .ok_or(BuildError::UnknownAlias(message_type))?;
 
-                for a in to.as_ref().into_iter().chain([from]) {
-                    if !actors.contains(&a) {
-                        return Err(BuildError::UnknownActor(&a));
+                for actor_name in to.as_ref().into_iter().chain([from]) {
+                    if !actors.contains(&actor_name) {
+                        return Err(BuildError::UnknownActor(&actor_name));
                     }
                 }
 
