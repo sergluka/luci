@@ -191,6 +191,80 @@ impl<'a> Running<'a> {
         self.graph.vertices.names.get(&event_key)
     }
 
+    async fn fire_event_bind(
+        &mut self,
+        actually_fired_events: &mut Vec<EventKey>,
+    ) -> Result<(), RunError> {
+        let Executable { messages, vertices } = self.graph;
+
+        let ready_bind_keys = {
+            let mut tmp = self
+                .ready_events
+                .iter()
+                .filter_map(|e| {
+                    if let EventKey::Bind(k) = e {
+                        Some(*k)
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>();
+            tmp.sort_by_key(|k| vertices.priority.get(&EventKey::Bind(*k)));
+            tmp
+        };
+
+        trace!("ready_bind_keys: {:#?}", ready_bind_keys);
+
+        for bind_key in ready_bind_keys {
+            self.ready_events.remove(&EventKey::Bind(bind_key));
+
+            trace!(" binding {:?}", bind_key);
+            let VertexBind { dst, src } = &vertices.bind[bind_key];
+
+            let value = match src {
+                Msg::Literal(value) => value.clone(),
+                Msg::Bind(template) => messages::render(template.clone(), &self.bindings)
+                    .map_err(RunError::Marshalling)?,
+                Msg::Inject(key) => {
+                    let m = messages.value(key).ok_or(RunError::Marshalling(
+                        format!("no such key: {:?}", key).into(),
+                    ))?;
+                    serde_json::to_value(m).expect("can't serialize a message?")
+                }
+            };
+
+            let mut kv = Default::default();
+            if !messages::bind_to_pattern(value, dst, &mut kv) {
+                trace!("  could not bind {:?}", bind_key);
+                continue;
+            }
+
+            let Ok(kv) = kv
+                .into_iter()
+                .map(|(k, v1)| {
+                    if self.bindings.get(&k).is_some_and(|v0| !v1.eq(v0)) {
+                        Err(())
+                    } else {
+                        Ok((k, v1))
+                    }
+                })
+                .collect::<Result<Vec<_>, _>>()
+            else {
+                trace!("  binding mismatch");
+                continue;
+            };
+
+            for (k, v) in kv {
+                info!("  bind {} <- {:?}", k, v);
+                self.bindings.insert(k, v);
+            }
+
+            actually_fired_events.push(EventKey::Bind(bind_key));
+        }
+
+        Ok(())
+    }
+
     pub async fn fire_event(
         &mut self,
         ready_event_key: ReadyEventKey,
@@ -230,72 +304,7 @@ impl<'a> Running<'a> {
 
         let mut actually_fired_events = vec![];
         match ready_event_key {
-            ReadyEventKey::Bind => {
-                let ready_bind_keys = {
-                    let mut tmp = self
-                        .ready_events
-                        .iter()
-                        .filter_map(|e| {
-                            if let EventKey::Bind(k) = e {
-                                Some(*k)
-                            } else {
-                                None
-                            }
-                        })
-                        .collect::<Vec<_>>();
-                    tmp.sort_by_key(|k| vertices.priority.get(&EventKey::Bind(*k)));
-                    tmp
-                };
-
-                trace!("ready_bind_keys: {:#?}", ready_bind_keys);
-
-                for bind_key in ready_bind_keys {
-                    self.ready_events.remove(&EventKey::Bind(bind_key));
-
-                    trace!(" binding {:?}", bind_key);
-                    let VertexBind { dst, src } = &vertices.bind[bind_key];
-
-                    let value = match src {
-                        Msg::Literal(value) => value.clone(),
-                        Msg::Bind(template) => messages::render(template.clone(), &self.bindings)
-                            .map_err(RunError::Marshalling)?,
-                        Msg::Inject(key) => {
-                            let m = messages.value(key).ok_or(RunError::Marshalling(
-                                format!("no such key: {:?}", key).into(),
-                            ))?;
-                            serde_json::to_value(m).expect("can't serialize a message?")
-                        }
-                    };
-
-                    let mut kv = Default::default();
-                    if !messages::bind_to_pattern(value, dst, &mut kv) {
-                        trace!("  could not bind {:?}", bind_key);
-                        continue;
-                    }
-
-                    let Ok(kv) = kv
-                        .into_iter()
-                        .map(|(k, v1)| {
-                            if self.bindings.get(&k).is_some_and(|v0| !v1.eq(v0)) {
-                                Err(())
-                            } else {
-                                Ok((k, v1))
-                            }
-                        })
-                        .collect::<Result<Vec<_>, _>>()
-                    else {
-                        trace!("  binding mismatch");
-                        continue;
-                    };
-
-                    for (k, v) in kv {
-                        info!("  bind {} <- {:?}", k, v);
-                        self.bindings.insert(k, v);
-                    }
-
-                    actually_fired_events.push(EventKey::Bind(bind_key));
-                }
-            }
+            ReadyEventKey::Bind => self.fire_event_bind(&mut actually_fired_events).await?,
             ReadyEventKey::Send(k) => {
                 let VertexSend {
                     from: send_from,
