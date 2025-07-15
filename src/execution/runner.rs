@@ -162,7 +162,7 @@ impl<'a> Runner<'a> {
     }
 
     // #[doc(hidden)]
-    // pub 
+    // pub
     fn ready_events(&self) -> impl Iterator<Item = ReadyEventKey> + '_ {
         let binds = self
             .ready_events
@@ -194,7 +194,7 @@ impl<'a> Runner<'a> {
     }
 
     // #[doc(hidden)]
-    // pub 
+    // pub
     async fn fire_event(
         &mut self,
         ready_event_key: ReadyEventKey,
@@ -290,10 +290,7 @@ impl<'a> Runner<'a> {
         &mut self,
         actually_fired_events: &mut Vec<EventKey>,
     ) -> Result<(), RunError> {
-        let Executable {
-            messages,
-            events: vertices,
-        } = self.executable;
+        let Executable { messages, events } = self.executable;
 
         let ready_bind_keys = {
             let mut tmp = self
@@ -307,7 +304,7 @@ impl<'a> Runner<'a> {
                     }
                 })
                 .collect::<Vec<_>>();
-            tmp.sort_by_key(|k| vertices.priority.get(&EventKey::Bind(*k)));
+            tmp.sort_by_key(|k| events.priority.get(&EventKey::Bind(*k)));
             tmp
         };
 
@@ -317,7 +314,7 @@ impl<'a> Runner<'a> {
             self.ready_events.remove(&EventKey::Bind(bind_key));
 
             trace!(" binding {:?}", bind_key);
-            let EventBind { dst, src } = &vertices.bind[bind_key];
+            let EventBind { dst, src } = &events.bind[bind_key];
 
             let value = match src {
                 Msg::Literal(value) => value.clone(),
