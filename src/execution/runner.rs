@@ -192,6 +192,95 @@ impl<'a> Running<'a> {
         self.graph.vertices.names.get(&event_key)
     }
 
+    pub async fn fire_event(
+        &mut self,
+        ready_event_key: ReadyEventKey,
+    ) -> Result<Vec<EventKey>, RunError> {
+        let event_key_opt = EventKey::try_from(ready_event_key).ok();
+
+        if let Some(event_key) = event_key_opt {
+            if !self.ready_events.remove(&event_key) {
+                return Err(RunError::EventIsNotReady(ready_event_key));
+            }
+        } else {
+            if !self.ready_events.iter().any(|e| {
+                matches!(
+                    e,
+                    EventKey::Recv(_) | EventKey::Delay(_) | EventKey::Bind(_)
+                )
+            }) {
+                return Err(RunError::EventIsNotReady(ready_event_key));
+            }
+        }
+
+        if let Some(event_key) = event_key_opt {
+            let event_name = self
+                .graph
+                .vertices
+                .names
+                .get(&event_key)
+                .expect("invalid event-key in ready-events?");
+            assert!(self.key_requires_values.get(&event_key).is_none());
+
+            debug!("firing {:?}...", event_name);
+        } else {
+            debug!("doing {:?}", ready_event_key);
+        }
+
+        let mut actually_fired_events = vec![];
+        match ready_event_key {
+            ReadyEventKey::Bind => self.fire_event_bind(&mut actually_fired_events).await?,
+            ReadyEventKey::Send(k) => self.fire_event_send(k, &mut actually_fired_events).await?,
+            ReadyEventKey::Respond(k) => {
+                self.fire_event_respond(k, &mut actually_fired_events)
+                    .await?
+            }
+
+            ReadyEventKey::RecvOrDelay => {
+                self.fire_event_recv_or_delay(&mut actually_fired_events)
+                    .await?
+            }
+        };
+
+        self.process_dependencies_of_fired_events(actually_fired_events.iter().copied());
+
+        Ok(actually_fired_events)
+    }
+}
+
+impl<'a> Running<'a> {
+    fn process_dependencies_of_fired_events(
+        &mut self,
+        actually_fired_events: impl IntoIterator<Item = EventKey>,
+    ) {
+        use std::collections::hash_map::Entry::Occupied;
+
+        let Executable { vertices, .. } = self.graph;
+        for fired_event in actually_fired_events.into_iter() {
+            if let Some(ds) = vertices.key_unblocks_values.get(&fired_event) {
+                for d in ds.iter().copied() {
+                    let Occupied(mut remove_from) = self.key_requires_values.entry(d) else {
+                        panic!("key_requires_values inconsistent with key_unblocks_values [1]")
+                    };
+                    let should_have_existed = remove_from.get_mut().remove(&fired_event);
+                    assert!(
+                        should_have_existed,
+                        "key_requires_values inconsistent with key_unblocks_values [2]"
+                    );
+                    if remove_from.get().is_empty() {
+                        debug!("  unblocked {:?}", d);
+                        remove_from.remove();
+                        self.ready_events.insert(d);
+
+                        if let EventKey::Delay(k) = d {
+                            self.delays.insert(Instant::now(), k, &vertices.delay[k]);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     async fn fire_event_bind(
         &mut self,
         actually_fired_events: &mut Vec<EventKey>,
@@ -266,6 +355,185 @@ impl<'a> Running<'a> {
         Ok(())
     }
 
+    async fn fire_event_recv_or_delay(
+        &mut self,
+        actually_fired_events: &mut Vec<EventKey>,
+    ) -> Result<(), RunError> {
+        let Executable { messages, vertices } = self.graph;
+
+        'recv_or_delay: loop {
+            for p in self.proxies.iter_mut() {
+                p.sync().await;
+            }
+
+            trace!(" receiving...");
+
+            let ready_recv_keys = {
+                let mut tmp = self
+                    .ready_events
+                    .iter()
+                    .filter_map(|e| {
+                        if let EventKey::Recv(k) = e {
+                            Some(*k)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                tmp.sort_by_key(|k| vertices.priority.get(&EventKey::Recv(*k)));
+                tmp
+            };
+
+            trace!("ready_recv_keys: {:#?}", ready_recv_keys);
+
+            let mut unmatched_envelopes = 0;
+
+            for (proxy_idx, proxy) in self.proxies.iter_mut().enumerate() {
+                trace!(" try_recv at proxies[{}]", proxy_idx);
+                let Some(envelope) = proxy.try_recv().await else {
+                    continue;
+                };
+
+                let envelope_message_name = envelope.message().name();
+
+                let sent_from = envelope.sender();
+                let sent_to_opt = Some(proxy.addr()).filter(|_| proxy_idx != 0);
+
+                trace!("  from: {:?}", sent_from);
+                trace!("  to:   {:?}", sent_to_opt);
+                trace!("  msg-name: {}", envelope.message().name());
+
+                let mut envelope_unused = true;
+
+                for recv_key in ready_recv_keys.iter().copied() {
+                    trace!(
+                        "   matching against {:?} [{:?}]",
+                        recv_key,
+                        vertices.names.get(&EventKey::Recv(recv_key)).unwrap()
+                    );
+                    let VertexRecv {
+                        fqn: match_type,
+                        from: match_from,
+                        to: match_to,
+                        payload: match_message,
+                    } = &vertices.recv[recv_key];
+                    let marshaller = messages.resolve(&match_type).expect("bad FQN");
+
+                    if let Some(from_name) = match_from {
+                        trace!("    expecting source: {:?}", from_name);
+                        if !self.actors.can_bind(from_name, sent_from) {
+                            trace!("    can't bind");
+                            continue;
+                        }
+                    }
+
+                    match (match_to, sent_to_opt) {
+                        (Some(bind_to_name), Some(sent_to_address)) => {
+                            trace!(
+                                "   expecting directed to {:?}, sent to address: {}",
+                                bind_to_name,
+                                sent_to_address
+                            );
+                            if !self.dummies.can_bind(bind_to_name, sent_to_address) {
+                                trace!("    can't bind");
+                                continue;
+                            }
+                        }
+
+                        (Some(bind_to_name), None) => {
+                            trace!(
+                                "   expected directed to {:?}, got routed message",
+                                bind_to_name
+                            );
+                            continue;
+                        }
+                        (_, _) => (),
+                    }
+
+                    let Some(kv) = marshaller.bind(&envelope, match_message) else {
+                        trace!("   marshaller couldn't bind");
+                        continue;
+                    };
+
+                    trace!("   marshaller bound: {:#?}", kv);
+
+                    let Ok(kv) = kv
+                        .into_iter()
+                        .map(|(k, v1)| {
+                            if self.bindings.get(&k).is_some_and(|v0| !v1.eq(v0)) {
+                                Err(())
+                            } else {
+                                Ok((k, v1))
+                            }
+                        })
+                        .collect::<Result<Vec<_>, _>>()
+                    else {
+                        trace!("     binding mismatch");
+                        continue;
+                    };
+
+                    for (k, v) in kv {
+                        info!("    bind {} <- {:?}", k, v);
+                        self.bindings.insert(k, v);
+                    }
+                    if let Some(from_name) = match_from {
+                        let bound_ok =
+                            self.actors
+                                .bind(from_name.clone(), sent_from, &mut self.dummies)?;
+                        assert!(bound_ok);
+                    }
+
+                    self.envelopes.insert(recv_key, envelope);
+                    self.ready_events.remove(&EventKey::Recv(recv_key));
+                    actually_fired_events.push(EventKey::Recv(recv_key));
+
+                    envelope_unused = false;
+                    break;
+                }
+
+                if envelope_unused {
+                    warn!("unmatched envelope with message {}", envelope_message_name);
+                    unmatched_envelopes += 1;
+                }
+            }
+
+            match (actually_fired_events.is_empty(), unmatched_envelopes == 0) {
+                (true, true) => {
+                    let now = Instant::now();
+                    let (sleep_until, expired_keys) = self.delays.next(now);
+
+                    trace!(
+                        "nothing to do — sleeping for {:?}...",
+                        sleep_until.checked_duration_since(now),
+                    );
+
+                    tokio::time::sleep_until(sleep_until).await;
+
+                    let some_keys_expired = !expired_keys.is_empty();
+
+                    for delay_key in expired_keys {
+                        self.ready_events.remove(&EventKey::Delay(delay_key));
+                        actually_fired_events.push(EventKey::Delay(delay_key));
+                    }
+
+                    if some_keys_expired || sleep_until == now {
+                        break 'recv_or_delay;
+                    }
+                }
+                (true, false) => {
+                    trace!("no fired events, but some unhandled envelopes");
+                }
+
+                (false, _) => {
+                    trace!("some events fired. Good!");
+                    break 'recv_or_delay;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     async fn fire_event_send(
         &mut self,
         event_key: KeySend,
@@ -331,302 +599,67 @@ impl<'a> Running<'a> {
         Ok(())
     }
 
-    pub async fn fire_event(
+    async fn fire_event_respond(
         &mut self,
-        ready_event_key: ReadyEventKey,
-    ) -> Result<Vec<EventKey>, RunError> {
-        let event_key_opt = EventKey::try_from(ready_event_key).ok();
-
-        if let Some(event_key) = event_key_opt {
-            if !self.ready_events.remove(&event_key) {
-                return Err(RunError::EventIsNotReady(ready_event_key));
-            }
-        } else {
-            if !self.ready_events.iter().any(|e| {
-                matches!(
-                    e,
-                    EventKey::Recv(_) | EventKey::Delay(_) | EventKey::Bind(_)
-                )
-            }) {
-                return Err(RunError::EventIsNotReady(ready_event_key));
-            }
-        }
-
-        if let Some(event_key) = event_key_opt {
-            let event_name = self
-                .graph
-                .vertices
-                .names
-                .get(&event_key)
-                .expect("invalid event-key in ready-events?");
-            assert!(self.key_requires_values.get(&event_key).is_none());
-
-            debug!("firing {:?}...", event_name);
-        } else {
-            debug!("doing {:?}", ready_event_key);
-        }
-
+        k: KeyRespond,
+        actually_fired_events: &mut Vec<EventKey>,
+    ) -> Result<(), RunError> {
         let Executable { messages, vertices } = self.graph;
 
-        let mut actually_fired_events = vec![];
-        match ready_event_key {
-            ReadyEventKey::Bind => self.fire_event_bind(&mut actually_fired_events).await?,
-            ReadyEventKey::Send(k) => self.fire_event_send(k, &mut actually_fired_events).await?,
-            ReadyEventKey::Respond(k) => {
-                let VertexRespond {
-                    respond_to,
-                    request_type: request_fqn,
-                    respond_from,
-                    payload: message_data,
-                } = &vertices.respond[k];
-                debug!(
-                    " responding to a {:?} [from: {:?}]",
-                    request_fqn, respond_from
-                );
+        let VertexRespond {
+            respond_to,
+            request_type: request_fqn,
+            respond_from,
+            payload: message_data,
+        } = &vertices.respond[k];
+        debug!(
+            " responding to a {:?} [from: {:?}]",
+            request_fqn, respond_from
+        );
 
-                let proxy_idx = if let Some(from) = respond_from {
-                    self.dummies
-                        .bind(from.clone(), &mut self.proxies, &mut self.actors)
-                        .await?
-                        .1
-                        .get()
-                } else {
-                    0
-                };
-                let request_marshaller = self
-                    .graph
-                    .messages
-                    .resolve(&request_fqn)
-                    .expect("invalid FQN");
-                let response_marshaller = request_marshaller
-                    .response()
-                    .expect("request_fqn does not point to a Request");
+        let proxy_idx = if let Some(from) = respond_from {
+            self.dummies
+                .bind(from.clone(), &mut self.proxies, &mut self.actors)
+                .await?
+                .1
+                .get()
+        } else {
+            0
+        };
+        let request_marshaller = self
+            .graph
+            .messages
+            .resolve(&request_fqn)
+            .expect("invalid FQN");
+        let response_marshaller = request_marshaller
+            .response()
+            .expect("request_fqn does not point to a Request");
 
-                let Some(request_envelope) = self.envelopes.remove(respond_to) else {
-                    return Err(RunError::NoRequest);
-                };
-
-                let token = match request_envelope.message_kind() {
-                    MessageKind::RequestAny(token) => token.duplicate(),
-                    MessageKind::RequestAll(token) => token.duplicate(),
-                    _ => return Err(RunError::NoRequest),
-                };
-
-                let responding_proxy = &mut self.proxies[proxy_idx];
-                response_marshaller
-                    .respond(
-                        responding_proxy,
-                        token,
-                        &messages,
-                        &self.bindings,
-                        message_data.clone(),
-                    )
-                    .await
-                    .map_err(RunError::Marshalling)?;
-
-                actually_fired_events.push(EventKey::Respond(k));
-            }
-
-            ReadyEventKey::RecvOrDelay => 'recv_or_delay: loop {
-                for p in self.proxies.iter_mut() {
-                    p.sync().await;
-                }
-
-                trace!(" receiving...");
-
-                let ready_recv_keys = {
-                    let mut tmp = self
-                        .ready_events
-                        .iter()
-                        .filter_map(|e| {
-                            if let EventKey::Recv(k) = e {
-                                Some(*k)
-                            } else {
-                                None
-                            }
-                        })
-                        .collect::<Vec<_>>();
-                    tmp.sort_by_key(|k| vertices.priority.get(&EventKey::Recv(*k)));
-                    tmp
-                };
-
-                trace!("ready_recv_keys: {:#?}", ready_recv_keys);
-
-                let mut unmatched_envelopes = 0;
-
-                for (proxy_idx, proxy) in self.proxies.iter_mut().enumerate() {
-                    trace!(" try_recv at proxies[{}]", proxy_idx);
-                    let Some(envelope) = proxy.try_recv().await else {
-                        continue;
-                    };
-
-                    let envelope_message_name = envelope.message().name();
-
-                    let sent_from = envelope.sender();
-                    let sent_to_opt = Some(proxy.addr()).filter(|_| proxy_idx != 0);
-
-                    trace!("  from: {:?}", sent_from);
-                    trace!("  to:   {:?}", sent_to_opt);
-                    trace!("  msg-name: {}", envelope.message().name());
-
-                    let mut envelope_unused = true;
-
-                    for recv_key in ready_recv_keys.iter().copied() {
-                        trace!(
-                            "   matching against {:?} [{:?}]",
-                            recv_key,
-                            vertices.names.get(&EventKey::Recv(recv_key)).unwrap()
-                        );
-                        let VertexRecv {
-                            fqn: match_type,
-                            from: match_from,
-                            to: match_to,
-                            payload: match_message,
-                        } = &vertices.recv[recv_key];
-                        let marshaller = messages.resolve(&match_type).expect("bad FQN");
-
-                        if let Some(from_name) = match_from {
-                            trace!("    expecting source: {:?}", from_name);
-                            if !self.actors.can_bind(from_name, sent_from) {
-                                trace!("    can't bind");
-                                continue;
-                            }
-                        }
-
-                        match (match_to, sent_to_opt) {
-                            (Some(bind_to_name), Some(sent_to_address)) => {
-                                trace!(
-                                    "   expecting directed to {:?}, sent to address: {}",
-                                    bind_to_name,
-                                    sent_to_address
-                                );
-                                if !self.dummies.can_bind(bind_to_name, sent_to_address) {
-                                    trace!("    can't bind");
-                                    continue;
-                                }
-                            }
-
-                            (Some(bind_to_name), None) => {
-                                trace!(
-                                    "   expected directed to {:?}, got routed message",
-                                    bind_to_name
-                                );
-                                continue;
-                            }
-                            (_, _) => (),
-                        }
-
-                        let Some(kv) = marshaller.bind(&envelope, match_message) else {
-                            trace!("   marshaller couldn't bind");
-                            continue;
-                        };
-
-                        trace!("   marshaller bound: {:#?}", kv);
-
-                        let Ok(kv) = kv
-                            .into_iter()
-                            .map(|(k, v1)| {
-                                if self.bindings.get(&k).is_some_and(|v0| !v1.eq(v0)) {
-                                    Err(())
-                                } else {
-                                    Ok((k, v1))
-                                }
-                            })
-                            .collect::<Result<Vec<_>, _>>()
-                        else {
-                            trace!("     binding mismatch");
-                            continue;
-                        };
-
-                        for (k, v) in kv {
-                            info!("    bind {} <- {:?}", k, v);
-                            self.bindings.insert(k, v);
-                        }
-                        if let Some(from_name) = match_from {
-                            let bound_ok = self.actors.bind(
-                                from_name.clone(),
-                                sent_from,
-                                &mut self.dummies,
-                            )?;
-                            assert!(bound_ok);
-                        }
-
-                        self.envelopes.insert(recv_key, envelope);
-                        self.ready_events.remove(&EventKey::Recv(recv_key));
-                        actually_fired_events.push(EventKey::Recv(recv_key));
-
-                        envelope_unused = false;
-                        break;
-                    }
-
-                    if envelope_unused {
-                        warn!("unmatched envelope with message {}", envelope_message_name);
-                        unmatched_envelopes += 1;
-                    }
-                }
-
-                match (actually_fired_events.is_empty(), unmatched_envelopes == 0) {
-                    (true, true) => {
-                        let now = Instant::now();
-                        let (sleep_until, expired_keys) = self.delays.next(now);
-
-                        trace!(
-                            "nothing to do — sleeping for {:?}...",
-                            sleep_until.checked_duration_since(now),
-                        );
-
-                        tokio::time::sleep_until(sleep_until).await;
-
-                        let some_keys_expired = !expired_keys.is_empty();
-
-                        for delay_key in expired_keys {
-                            self.ready_events.remove(&EventKey::Delay(delay_key));
-                            actually_fired_events.push(EventKey::Delay(delay_key));
-                        }
-
-                        if some_keys_expired || sleep_until == now {
-                            break 'recv_or_delay;
-                        }
-                    }
-                    (true, false) => {
-                        trace!("no fired events, but some unhandled envelopes");
-                    }
-
-                    (false, _) => {
-                        trace!("some events fired. Good!");
-                        break 'recv_or_delay;
-                    }
-                }
-            },
+        let Some(request_envelope) = self.envelopes.remove(respond_to) else {
+            return Err(RunError::NoRequest);
         };
 
-        for fired_event in actually_fired_events.iter() {
-            if let Some(ds) = vertices.key_unblocks_values.get(fired_event) {
-                for d in ds.iter().copied() {
-                    let std::collections::hash_map::Entry::Occupied(mut remove_from) =
-                        self.key_requires_values.entry(d)
-                    else {
-                        panic!("key_requires_values inconsistent with key_unblocks_values [1]")
-                    };
-                    let should_have_existed = remove_from.get_mut().remove(fired_event);
-                    assert!(
-                        should_have_existed,
-                        "key_requires_values inconsistent with key_unblocks_values [2]"
-                    );
-                    if remove_from.get().is_empty() {
-                        debug!("  unblocked {:?}", d);
-                        remove_from.remove();
-                        self.ready_events.insert(d);
+        let token = match request_envelope.message_kind() {
+            MessageKind::RequestAny(token) => token.duplicate(),
+            MessageKind::RequestAll(token) => token.duplicate(),
+            _ => return Err(RunError::NoRequest),
+        };
 
-                        if let EventKey::Delay(k) = d {
-                            self.delays.insert(Instant::now(), k, &vertices.delay[k]);
-                        }
-                    }
-                }
-            }
-        }
+        let responding_proxy = &mut self.proxies[proxy_idx];
+        response_marshaller
+            .respond(
+                responding_proxy,
+                token,
+                &messages,
+                &self.bindings,
+                message_data.clone(),
+            )
+            .await
+            .map_err(RunError::Marshalling)?;
 
-        Ok(actually_fired_events)
+        actually_fired_events.push(EventKey::Respond(k));
+
+        Ok(())
     }
 }
 
