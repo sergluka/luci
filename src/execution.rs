@@ -43,6 +43,7 @@ pub enum EventKey {
 #[derive(Debug)]
 pub struct Executable {
     messages: Messages,
+    // TODO: rename into `events`
     vertices: Events,
 }
 

@@ -72,6 +72,7 @@ impl TryFrom<ReadyEventKey> for EventKey {
 }
 
 pub struct Running<'a> {
+    // TODO: rename into `executable`
     graph: &'a Executable,
 
     ready_events: BTreeSet<EventKey>,
@@ -265,6 +266,71 @@ impl<'a> Running<'a> {
         Ok(())
     }
 
+    async fn fire_event_send(
+        &mut self,
+        event_key: KeySend,
+        actually_fired_events: &mut Vec<EventKey>,
+    ) -> Result<(), RunError> {
+        let Executable { messages, vertices } = self.graph;
+        let VertexSend {
+            from: send_from,
+            to: send_to,
+            fqn: message_type,
+            payload: message_data,
+        } = &vertices.send[event_key];
+        debug!(
+            " sending {:?} [from: {:?}; to: {:?}]",
+            message_type, send_from, send_to
+        );
+
+        let actor_addr_opt = if let Some(actor_name) = send_to {
+            let addr = self
+                .actors
+                .resolve(actor_name)?
+                .ok_or_else(|| RunError::UnboundName(actor_name.clone()))?;
+
+            Some(addr)
+        } else {
+            None
+        };
+
+        let (dummy_addr, proxy_idx) = self
+            .dummies
+            .bind(send_from.clone(), &mut self.proxies, &mut self.actors)
+            .await?;
+
+        let marshaller = self
+            .graph
+            .messages
+            .resolve(&message_type)
+            .expect("invalid FQN");
+        let any_message = marshaller
+            .marshall(&messages, &self.bindings, message_data.clone())
+            .map_err(RunError::Marshalling)?;
+
+        let sending_proxy = &mut self.proxies[proxy_idx.get()];
+        if let Some(dst_addr) = actor_addr_opt {
+            trace!(
+                " sending directly [from: {}; to: {}]: {:?}",
+                dst_addr,
+                dummy_addr,
+                any_message
+            );
+            let () = sending_proxy.send_to(dst_addr, any_message).await;
+        } else {
+            trace!(
+                " sending via routing [from: {}: {:?}",
+                dummy_addr,
+                any_message
+            );
+            let () = sending_proxy.send(any_message).await;
+        }
+
+        actually_fired_events.push(EventKey::Send(event_key));
+
+        Ok(())
+    }
+
     pub async fn fire_event(
         &mut self,
         ready_event_key: ReadyEventKey,
@@ -305,63 +371,7 @@ impl<'a> Running<'a> {
         let mut actually_fired_events = vec![];
         match ready_event_key {
             ReadyEventKey::Bind => self.fire_event_bind(&mut actually_fired_events).await?,
-            ReadyEventKey::Send(k) => {
-                let VertexSend {
-                    from: send_from,
-                    to: send_to,
-                    fqn: message_type,
-                    payload: message_data,
-                } = &vertices.send[k];
-                debug!(
-                    " sending {:?} [from: {:?}; to: {:?}]",
-                    message_type, send_from, send_to
-                );
-
-                let actor_addr_opt = if let Some(actor_name) = send_to {
-                    let addr = self
-                        .actors
-                        .resolve(actor_name)?
-                        .ok_or_else(|| RunError::UnboundName(actor_name.clone()))?;
-
-                    Some(addr)
-                } else {
-                    None
-                };
-
-                let (dummy_addr, proxy_idx) = self
-                    .dummies
-                    .bind(send_from.clone(), &mut self.proxies, &mut self.actors)
-                    .await?;
-
-                let marshaller = self
-                    .graph
-                    .messages
-                    .resolve(&message_type)
-                    .expect("invalid FQN");
-                let any_message = marshaller
-                    .marshall(&messages, &self.bindings, message_data.clone())
-                    .map_err(RunError::Marshalling)?;
-
-                let sending_proxy = &mut self.proxies[proxy_idx.get()];
-                if let Some(dst_addr) = actor_addr_opt {
-                    trace!(
-                        " sending directly [from: {}; to: {}]: {:?}",
-                        dst_addr,
-                        dummy_addr,
-                        any_message
-                    );
-                    let () = sending_proxy.send_to(dst_addr, any_message).await;
-                } else {
-                    trace!(
-                        " sending via routing [from: {}: {:?}",
-                        dummy_addr,
-                        any_message
-                    );
-                    let () = sending_proxy.send(any_message).await;
-                }
-
-                actually_fired_events.push(EventKey::Send(k));
-            }
+            ReadyEventKey::Send(k) => self.fire_event_send(k, &mut actually_fired_events).await?,
             ReadyEventKey::Respond(k) => {
                 let VertexRespond {
                     respond_to,
