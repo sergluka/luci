@@ -18,7 +18,6 @@ mod report;
 mod runner;
 
 pub use build::BuildError;
-pub use build::ExecutableBuilder;
 pub use report::Report;
 pub use runner::RunError;
 pub use runner::Runner;

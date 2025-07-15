@@ -48,22 +48,9 @@ pub enum BuildError<'a> {
     InvalidData(messages::AnError),
 }
 
-#[derive(Debug)]
-pub struct ExecutableBuilder {
-    messages: Messages,
-}
-
 impl Executable {
-    pub fn builder(messages: Messages) -> ExecutableBuilder {
-        debug!("created a builder");
-        ExecutableBuilder { messages }
-    }
-}
-
-impl ExecutableBuilder {
-    pub fn build(self, scenario: &Scenario) -> Result<Executable, BuildError<'_>> {
+    pub fn build(messages: Messages, scenario: &Scenario) -> Result<Self, BuildError> {
         debug!("building...");
-        let Self { messages } = self;
 
         debug!("storing type-aliases...");
         let type_aliases = type_aliases(&messages, &scenario.types)?;

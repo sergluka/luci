@@ -123,9 +123,7 @@ async fn run_scenario(scenario_text: &str) {
         .with(Regular::<crate::proto::Pong>)
         .with(Regular::<crate::proto::Bye>);
     let scenario: Scenario = serde_yaml::from_str(scenario_text).unwrap();
-    let exec_graph = Executable::builder(messages)
-        .build(&scenario)
-        .expect("building graph");
+    let exec_graph = Executable::build(messages, &scenario).expect("building graph");
     let report = exec_graph
         .start(pinger::blueprint(), json!(null))
         .await
