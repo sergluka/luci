@@ -72,8 +72,7 @@ impl TryFrom<ReadyEventKey> for EventKey {
 }
 
 pub struct Running<'a> {
-    // TODO: rename into `executable`
-    graph: &'a Executable,
+    executable: &'a Executable,
 
     ready_events: BTreeSet<EventKey>,
     key_requires_values: HashMap<EventKey, HashSet<EventKey>>,
@@ -120,7 +119,7 @@ impl Executable {
 
 impl<'a> Running<'a> {
     pub async fn run(mut self) -> Result<Report, RunError> {
-        let mut unreached = self.graph.events.required.clone();
+        let mut unreached = self.executable.events.required.clone();
         let mut reached = HashMap::new();
 
         while let Some(event_key) = {
@@ -189,7 +188,7 @@ impl<'a> Running<'a> {
     }
 
     pub fn event_name(&self, event_key: EventKey) -> Option<&EventName> {
-        self.graph.events.names.get(&event_key)
+        self.executable.events.names.get(&event_key)
     }
 
     pub async fn fire_event(
@@ -215,7 +214,7 @@ impl<'a> Running<'a> {
 
         if let Some(event_key) = event_key_opt {
             let event_name = self
-                .graph
+                .executable
                 .events
                 .names
                 .get(&event_key)
@@ -257,7 +256,7 @@ impl<'a> Running<'a> {
 
         let Executable {
             events: vertices, ..
-        } = self.graph;
+        } = self.executable;
         for fired_event in actually_fired_events.into_iter() {
             if let Some(ds) = vertices.key_unblocks_values.get(&fired_event) {
                 for d in ds.iter().copied() {
@@ -290,7 +289,7 @@ impl<'a> Running<'a> {
         let Executable {
             messages,
             events: vertices,
-        } = self.graph;
+        } = self.executable;
 
         let ready_bind_keys = {
             let mut tmp = self
@@ -367,7 +366,7 @@ impl<'a> Running<'a> {
         let Executable {
             messages,
             events: vertices,
-        } = self.graph;
+        } = self.executable;
 
         'recv_or_delay: loop {
             for p in self.proxies.iter_mut() {
@@ -550,7 +549,7 @@ impl<'a> Running<'a> {
         let Executable {
             messages,
             events: vertices,
-        } = self.graph;
+        } = self.executable;
         let VertexSend {
             from: send_from,
             to: send_to,
@@ -579,7 +578,7 @@ impl<'a> Running<'a> {
             .await?;
 
         let marshaller = self
-            .graph
+            .executable
             .messages
             .resolve(&message_type)
             .expect("invalid FQN");
@@ -618,7 +617,7 @@ impl<'a> Running<'a> {
         let Executable {
             messages,
             events: vertices,
-        } = self.graph;
+        } = self.executable;
 
         let VertexRespond {
             respond_to,
@@ -641,7 +640,7 @@ impl<'a> Running<'a> {
             0
         };
         let request_marshaller = self
-            .graph
+            .executable
             .messages
             .resolve(&request_fqn)
             .expect("invalid FQN");
@@ -712,7 +711,7 @@ impl<'a> Running<'a> {
                 },
             );
         Self {
-            graph,
+            executable: graph,
 
             ready_events,
             key_requires_values,
