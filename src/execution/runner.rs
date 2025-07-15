@@ -339,9 +339,7 @@ impl<'a> Runner<'a> {
         } = self.executable;
 
         'recv_or_delay: loop {
-            for (_, p) in self.proxies.iter_mut() {
-                p.sync().await;
-            }
+            self.proxies[self.main_proxy_key].sync().await;
 
             trace!(" receiving...");
 
