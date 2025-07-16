@@ -6,6 +6,23 @@ use luci::{
 use serde_json::json;
 
 pub mod proto {
+    //! An actor sends a [`Bro`] via the routing upon its start.
+    //!
+    //! Whoever receives a [`Bro`], replies with a directed [`Bro`] to
+    //! the sender of the received message, unless the sender is in the list of known-peers.
+    //!
+    //! After sending a directed [`Bro`] the destination address is put into the list of known-peers.
+    //!
+    //! Once every [`TIMEOUT`] an actor sends a [`Ping`] to each of the known-peers,
+    //! and marks them as a removal-candidate.
+    //!
+    //! If an actor receives a [`Pong`] from a known peer,
+    //! that peer is no longer considered a removal-candidate.
+    //!
+    //! Once every [`TIMEOUT`] an actor forgets all the peers known as removal-candidates,
+    //! those peers are no longer in the list of known-peers.
+    //!
+
     use std::time::Duration;
 
     use elfo::message;
