@@ -1,0 +1,15 @@
+types:
+  - use: ping_pong::proto::Bro
+    as:  Bro
+
+cast:
+  - p0
+
+events:
+  - id: initial-bro
+    require: reached
+    recv:
+      from: p0
+      type: Bro
+      data:
+        exact: ~

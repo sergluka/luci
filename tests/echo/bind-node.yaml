@@ -1,0 +1,76 @@
+types:
+  - use: echo::proto::V
+    as:  V
+
+cast:
+  - dummy
+
+events:
+  - id: send
+    send:
+      from: dummy
+      type: V
+      data:
+        exact:
+          one: vienas
+          two: du
+  - id: recv
+    after:
+      - send
+    recv:
+      to: dummy
+      type: V
+      data:
+        bind: $PAYLOAD
+  
+  - id: bind-payload-one
+    require: reached
+    after:
+      - recv
+    bind:
+      dst:
+        one: $ONE
+      src:
+        bind: $PAYLOAD
+
+  - id: bind-payload-two
+    require: reached
+    after:
+      - recv
+    bind:
+      dst:
+        two: $TWO
+      src:
+        bind: $PAYLOAD
+
+  - id: bind-payload-three
+    require: unreached
+    after:
+      - recv
+    bind:
+      dst:
+        three: $THREE
+      src:
+        bind: $PAYLOAD
+
+  - id: bind-invalid
+    require: unreached
+    after:
+      - recv
+    bind:
+      dst:
+        four: $FOUR
+      src:
+        bind: $PAYLOAD
+
+  - id: put-it-back
+    require: reached
+    after:
+      - bind-payload-one
+      - bind-payload-two
+    bind:
+      dst: $PAYLOAD
+      src:
+        bind:
+          one: $ONE
+          two: $TWO
