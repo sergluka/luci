@@ -13,7 +13,7 @@ use crate::{
         EventBind, EventDelay, EventKey, EventRecv, EventRespond, EventSend, Executable, KeyDelay,
         KeyRecv, KeyRespond, KeySend, Report,
     },
-    messages,
+    marshalling,
     names::{ActorName, EventName},
     scenario::Msg,
 };
@@ -39,7 +39,7 @@ pub enum RunError {
     BindError(bindings::BindError),
 
     #[error("marshalling error: {}", _0)]
-    Marshalling(messages::AnError),
+    Marshalling(marshalling::AnError),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -275,7 +275,7 @@ impl<'a> Runner<'a> {
         &mut self,
         actually_fired_events: &mut Vec<EventKey>,
     ) -> Result<(), RunError> {
-        let Executable { messages, events } = self.executable;
+        let Executable { marshalling: messages, events } = self.executable;
 
         let ready_bind_keys = {
             let mut tmp = self
@@ -334,7 +334,7 @@ impl<'a> Runner<'a> {
         actually_fired_events: &mut Vec<EventKey>,
     ) -> Result<(), RunError> {
         let Executable {
-            messages,
+            marshalling: messages,
             events: vertices,
         } = self.executable;
 
@@ -499,7 +499,7 @@ impl<'a> Runner<'a> {
         actually_fired_events: &mut Vec<EventKey>,
     ) -> Result<(), RunError> {
         let Executable {
-            messages,
+            marshalling: messages,
             events: vertices,
         } = self.executable;
         let EventSend {
@@ -540,7 +540,7 @@ impl<'a> Runner<'a> {
 
         let marshaller = self
             .executable
-            .messages
+            .marshalling
             .resolve(&message_type)
             .expect("invalid FQN");
 
@@ -576,7 +576,7 @@ impl<'a> Runner<'a> {
         actually_fired_events: &mut Vec<EventKey>,
     ) -> Result<(), RunError> {
         let Executable {
-            messages,
+            marshalling: messages,
             events: vertices,
         } = self.executable;
 
@@ -605,7 +605,7 @@ impl<'a> Runner<'a> {
 
         let request_marshaller = self
             .executable
-            .messages
+            .marshalling
             .resolve(&request_fqn)
             .expect("invalid FQN");
         let response_marshaller = request_marshaller
