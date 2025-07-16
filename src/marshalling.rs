@@ -297,7 +297,11 @@ fn do_marshal_message<M: Message>(
             Ok(a)
         }
         Msg::Inject(name) => {
-            let a = marshalling.values.get(&name).cloned().ok_or("no such value")?;
+            let a = marshalling
+                .values
+                .get(&name)
+                .cloned()
+                .ok_or("no such value")?;
             Ok(a)
         }
         Msg::Literal(value) => {

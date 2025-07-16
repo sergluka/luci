@@ -190,18 +190,7 @@ impl<'a> Runner<'a> {
             if !self.ready_events.remove(&event_key) {
                 return Err(RunError::EventIsNotReady(ready_event_key));
             }
-        } else {
-            if !self.ready_events.iter().any(|e| {
-                matches!(
-                    e,
-                    EventKey::Recv(_) | EventKey::Delay(_) | EventKey::Bind(_)
-                )
-            }) {
-                return Err(RunError::EventIsNotReady(ready_event_key));
-            }
-        }
 
-        if let Some(event_key) = event_key_opt {
             let event_name = self
                 .executable
                 .events
@@ -212,6 +201,15 @@ impl<'a> Runner<'a> {
 
             debug!("firing {:?}...", event_name);
         } else {
+            if !self.ready_events.iter().any(|e| {
+                matches!(
+                    e,
+                    EventKey::Recv(_) | EventKey::Delay(_) | EventKey::Bind(_)
+                )
+            }) {
+                return Err(RunError::EventIsNotReady(ready_event_key));
+            }
+
             debug!("doing {:?}", ready_event_key);
         }
 
@@ -275,7 +273,10 @@ impl<'a> Runner<'a> {
         &mut self,
         actually_fired_events: &mut Vec<EventKey>,
     ) -> Result<(), RunError> {
-        let Executable { marshalling: messages, events } = self.executable;
+        let Executable {
+            marshalling: messages,
+            events,
+        } = self.executable;
 
         let ready_bind_keys = {
             let mut tmp = self
