@@ -171,6 +171,7 @@ impl<'a> Runner<'a> {
             .map(ReadyEventKey::from)
             .take(1);
 
+        // this is just a predictable order of events, no significant scientific basis behind it.
         binds.chain(send_and_respond).chain(recv_or_delay)
     }
 
