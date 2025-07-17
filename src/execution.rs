@@ -13,9 +13,9 @@ use crate::{
 };
 
 mod build;
-mod graphics;
 mod report;
 mod runner;
+mod visualization;
 
 pub use build::BuildError;
 pub use report::Report;

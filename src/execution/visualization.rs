@@ -1,33 +1,47 @@
 use std::collections::HashSet;
 
-use crate::graphics::{OutputFormat, RenderGraph};
+use crate::visualization::{OutputFormat, RenderGraph};
 
 use super::{
     EventBind, EventDelay, EventKey, EventRecv, EventRespond, EventSend, Events, Executable,
 };
 
 impl RenderGraph for Executable {
-    const OUTPUT: OutputFormat = OutputFormat::Graphviz;
+    const OUTPUT: OutputFormat = OutputFormat::Dot;
 
     fn render(&self) -> String {
         let mut acc = String::new();
         acc.push_str("digraph test { rankdir=LR layout=dot\n");
 
-        self.events
+        let mut events = self
+            .events
             .entry_points
             .iter()
             .chain(self.events.key_unblocks_values.values().flatten())
             .cloned()
             .collect::<HashSet<EventKey>>() // deduplicate
-            .iter()
-            .for_each(|key| {
-                self.events.draw_node(&mut acc, &key);
-            });
+            .into_iter()
+            .collect::<Vec<EventKey>>();
+        // Sorting is necessary to make the output deterministic and snapshot tests pass.
+        events.sort();
+        for event in events {
+            self.events.draw_node(&mut acc, &event);
+        }
 
-        for (parent, children) in &self.events.key_unblocks_values {
-            for child in children {
-                acc.push_str(&format!(r#"  "{:?}" -> "{:?}""#, parent, child));
-            }
+        let mut connections = self
+            .events
+            .key_unblocks_values
+            .iter()
+            .flat_map(|(parent, children)| {
+                children
+                    .iter()
+                    .map(move |child| format!("  \"{:?}\" -> \"{:?}\"\n", parent, child))
+            })
+            .collect::<Vec<_>>();
+        // Sorting is necessary to make the output deterministic and snapshot tests pass.
+        connections.sort();
+        for connection in connections {
+            acc.push_str(&connection);
         }
 
         acc.push_str("}\n");

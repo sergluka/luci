@@ -7,9 +7,9 @@
 //! We [run executables](crate::execution::Runner) to get [reports](crate::execution::Report).
 
 pub mod execution;
-pub mod graphics;
 pub mod marshalling;
 pub mod names;
 pub mod scenario;
+pub mod visualization;
 
 mod bindings;

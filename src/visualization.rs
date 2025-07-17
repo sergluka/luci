@@ -1,5 +1,5 @@
 pub enum OutputFormat {
-    Graphviz,
+    Dot,
 }
 
 pub trait RenderGraph {

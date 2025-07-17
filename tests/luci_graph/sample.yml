@@ -1,0 +1,439 @@
+types:
+  - use: protocol::Start
+    as: Start
+  - use: protocol::SubscribeToData
+    as: SubscribeToData
+  - use: protocol::FetchSettings
+    as: FetchSettings
+  - use: protocol::FetchData
+    as: FetchData
+  - use: protocol::LoadState
+    as: LoadState
+  - use: protocol::UpdateStatus
+    as: UpdateStatus
+  - use: protocol::RunStatusReport
+    as: RunStatusReport
+  - use: protocol::StartWorker
+    as: StartWorker
+  - use: protocol::WorkerIsStarted
+    as: WorkerIsStarted
+  - use: protocol::OpenConnection
+    as: OpenConnection
+  - use: protocol::ConnectionIsOpened
+    as: ConnectionIsOpened
+  - use: protocol::GconPollOrders
+    as: GconPollOrders
+  - use: protocol::InitCompleted
+    as: InitCompleted
+  - use: custom::CustomMessage
+    as: CustomMessage
+  - use: protocol::DataAdjustment
+    as: DataAdjustment
+
+cast:
+  - master
+  - conn
+  - someone-else
+
+events:
+  - id: run for at least
+    delay:
+      for: 3m
+      step: 12s
+
+  - id: bind:Env
+    bind:
+      dst:
+        - cqg
+        - Env
+        - now_rfc3339: $ENV_NOW.rfc3339
+          now_nanos: $ENV_NOW.nanos
+      src:
+        inject: ENV
+
+  - id: start
+    send:
+      from: someone-else
+      type: Start
+      data:
+        literal:
+          target:
+            NodeId: 104
+
+  - id: request:SubscribeToData
+    happens_after:
+      - start
+    recv:
+      from: master
+      type: SubscribeToData
+      data:
+        bind: $_
+
+  - id: response:SubscribeToData
+    happens_after:
+      - request:SubscribeToData
+    respond:
+      to_request: request:SubscribeToData
+      from: someone-else
+      data:
+        inject: SubscribeToData::Response
+
+  - id: request:FetchSettings
+    happens_after:
+      - start
+    recv:
+      from: master
+      type: FetchSettings
+      data:
+        bind:
+          - real
+          - FetchSettings
+          - account_id: $ACCOUNT_ID
+
+  - id: response:FetchSettings
+    happens_after:
+      - request:FetchSettings
+    respond:
+      from: someone-else
+      to_request: request:FetchSettings
+      data:
+        bind:
+          account_id: $ACCOUNT_ID
+          entries: {}
+          local_time: $ENV_NOW.nanos
+
+  - id: request:FetchData
+    happens_after:
+      - start
+    recv:
+      from: master
+      type: FetchData
+      data:
+        bind:
+          - real
+          - FetchData
+          - account_id: $ACCOUNT_ID
+
+  - id: response:FetchData
+    happens_after:
+      - request:FetchData
+    respond:
+      from: someone-else
+      to_request: request:FetchData
+      data:
+        bind:
+          account_id: $ACCOUNT_ID
+          entries: {}
+          local_time: $ENV_NOW.nanos
+
+  - id: msg:UpdateStatus
+    happens_after:
+      - start
+    recv:
+      from: master
+      type: UpdateStatus
+      data:
+        bind: $UpdateStatus.msg
+
+  - id: msg:RunStatusReport
+    happens_after:
+      - start
+    recv:
+      from: master
+      type: RunStatusReport
+      data:
+        bind: $RunStatusReport.msg
+
+  - id: request:LoadState
+    happens_after:
+      - start
+    recv:
+      from: master
+      type: LoadState
+      data:
+        bind: $LoadState.request
+
+  - id: response:LoadState
+    happens_after:
+      - request:LoadState
+    respond:
+      from: someone-else
+      to_request: request:LoadState
+      data:
+        literal:
+          Err: NotFound
+
+  - id: msg:StartWorker
+    happens_after:
+      - start
+    recv:
+      from: master
+      type: StartWorker
+      data:
+        bind:
+          - master_sdk
+          - StartWorker
+          - $StartWorker.msg
+
+  - id: bind:StartWorker
+    require: reached
+    happens_after:
+      - msg:StartWorker
+    bind:
+      dst:
+        account_id: $ACCOUNT_ID
+      src:
+        bind: $StartWorker.msg
+
+  - id: msg:WorkerIsStarted
+    happens_after:
+      - bind:StartWorker
+    send:
+      from: conn
+      to: master
+      type: WorkerIsStarted
+      data:
+        bind:
+          account_id: $ACCOUNT_ID
+
+  - id: msg:OpenConnection[1]
+    happens_after:
+      - msg:WorkerIsStarted
+    recv:
+      from: master
+      to: conn
+      type: OpenConnection
+      data:
+        bind:
+          - master_sdk
+          - OpenConnection
+          - $OpenConnection[1].msg
+
+  - id: msg:OpenConnection[2]
+    happens_after:
+      - msg:WorkerIsStarted
+    recv:
+      from: master
+      to: conn
+      type: OpenConnection
+      data:
+        bind:
+          - master_sdk
+          - OpenConnection
+          - $OpenConnection[2].msg
+
+  - id: bind:OpenConnection[1]
+    require: reached
+    happens_after:
+      - msg:OpenConnection[1]
+    bind:
+      dst:
+        connection:
+          account_id: $ACCOUNT_ID
+        stream_id: $STREAM_ID[1]
+      src:
+        bind: $OpenConnection[1].msg
+
+  - id: bind:OpenConnection[2]
+    require: reached
+    happens_after:
+      - msg:OpenConnection[2]
+    bind:
+      dst:
+        connection:
+          account_id: $ACCOUNT_ID
+        stream_id: $STREAM_ID[2]
+      src:
+        bind: $OpenConnection[2].msg
+
+  - id: msg:ConnectionIsOpened[1]
+    happens_after:
+      - bind:OpenConnection[1]
+    send:
+      from: conn
+      to: master
+      type: ConnectionIsOpened
+      data:
+        bind:
+          open: $OpenConnection[1].msg
+
+  - id: msg:ConnectionIsOpened[2]
+    happens_after:
+      - bind:OpenConnection[2]
+    send:
+      from: conn
+      to: master
+      type: ConnectionIsOpened
+      data:
+        bind:
+          open: $OpenConnection[2].msg
+
+  - id: msg:GconPollOrders
+    happens_after:
+      - msg:WorkerIsStarted
+    recv:
+      from: master
+      to: conn
+      type: GconPollOrders
+      data:
+        bind:
+          - master_sdk
+          - GconPollOrders
+          - $GconPollOrders.msg
+
+  - id: bind:GconPollOrders
+    happens_after:
+      - msg:GconPollOrders
+    bind:
+      dst:
+        connection: $GconPollOrders.connection
+      src:
+        bind: $GconPollOrders.msg
+
+  - id: msg:InitCompleted
+    happens_after:
+      - bind:GconPollOrders
+    send:
+      from: conn
+      to: master
+      type: InitCompleted
+      data:
+        bind:
+          local_time: $ENV_NOW.nanos
+          reports: []
+          request:
+            connection: $GconPollOrders.connection
+            kind: Active
+            user_id: ~
+            item_id: ~
+            happens_after_exchange_time: ~
+          total_orders_polled: 0
+
+  - id: msg:Cqg::PositionStatus[1].snapshot
+    happens_after:
+      - msg:ConnectionIsOpened[1]
+    send:
+      from: conn
+      to: master
+      type: CustomMessage
+      data:
+        bind:
+          PositionStatus:
+            account_id: $ACCOUNT_ID
+            stream_id: $STREAM_ID[1]
+            user_id: 108
+            status:
+              is_ready: true
+              items:
+                - id: 1
+                  pid: 1.0
+  - id: msg:Cqg::PositionsInitialSyncDone[1]
+    happens_after:
+      - msg:Cqg::PositionStatus[1].snapshot
+    send:
+      from: conn
+      to: master
+      type: CustomMessage
+      data:
+        bind:
+          PositionsInitialSyncDone:
+            account_id: $ACCOUNT_ID
+            stream_id: $STREAM_ID[1]
+
+  - id: msg:Cqg::PositionStatus[2].snapshot
+    happens_after:
+      - msg:ConnectionIsOpened[2]
+    send:
+      from: conn
+      to: master
+      type: CustomMessage
+      data:
+        bind:
+          PositionStatus:
+            account_id: $ACCOUNT_ID
+            stream_id: $STREAM_ID[2]
+            user_id: I:108
+            status:
+              is_ready: true
+              items:
+                - id: 15
+                  pid: 1.0
+  - id: msg:Cqg::PositionsInitialSyncDone[2]
+    happens_after:
+      - msg:Cqg::PositionStatus[2].snapshot
+    send:
+      from: conn
+      to: master
+      type: CustomMessage
+      data:
+        bind:
+          PositionsInitialSyncDone:
+            account_id: $ACCOUNT_ID
+            stream_id: $STREAM_ID[2]
+
+  - id: 10-sec-happens_after-both-connections-opened
+    require: reached
+    happens_after:
+      - bind:OpenConnection[1]
+      - bind:OpenConnection[2]
+    delay:
+      for: 10s
+      step: 1s
+
+  - id: msg:Cqg::PositionStatus[1].update
+    happens_after:
+      - 10-sec-happens_after-both-connections-opened
+    send:
+      from: conn
+      to: master
+      type: CustomMessage
+      data:
+        bind:
+          PositionStatus:
+            account_id: $ACCOUNT_ID
+            stream_id: $STREAM_ID[1]
+            user_id: I:108
+            status:
+              is_ready: false
+              items:
+                - id: 1
+                  pid: 3
+                - id: 2
+                  pid: 1.0
+
+  - id: msg:Cqg::PositionStatus[2].update
+    happens_after:
+      - 10-sec-happens_after-both-connections-opened
+    send:
+      from: conn
+      to: master
+      type: CustomMessage
+      data:
+        bind:
+          PositionStatus:
+            account_id: $ACCOUNT_ID
+            stream_id: $STREAM_ID[2]
+            user_id: 108
+            status:
+              is_ready: false
+              items:
+                - id: 15
+                  pid: 3
+                - id: 16
+                  pid: 1
+
+  - id: msg:DataAdjustment
+    require: reached
+    happens_after:
+      - msg:Cqg::PositionStatus[1].update
+      - msg:Cqg::PositionStatus[2].update
+    recv:
+      from: master
+      type: DataAdjustment
+      data:
+        bind:
+          - real
+          - DataAdjustment
+          - account_id: $ACCOUNT_ID
+            user_id: 108
+            amount_total: "4.0"

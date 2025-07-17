@@ -1,14 +1,14 @@
 use std::collections::HashSet;
 
 use crate::{
-    graphics::{OutputFormat, RenderGraph},
     scenario::DefEventKind,
+    visualization::{OutputFormat, RenderGraph},
 };
 
 use super::{DefEvent, Scenario};
 
 impl RenderGraph for Scenario {
-    const OUTPUT: OutputFormat = OutputFormat::Graphviz;
+    const OUTPUT: OutputFormat = OutputFormat::Dot;
 
     fn render(&self) -> String {
         let mut acc = String::new();

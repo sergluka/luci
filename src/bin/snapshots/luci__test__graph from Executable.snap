@@ -1,0 +1,193 @@
+---
+source: src/bin/luci_graph.rs
+expression: result
+---
+digraph test { rankdir=LR layout=dot
+"Bind(KeyBind(1v1))" [label="bind\nsrc: \n!inject ENV
+\ndst: \n- cqg
+- Env
+- now_nanos: $ENV_NOW.nanos
+  now_rfc3339: $ENV_NOW.rfc3339
+"]
+"Bind(KeyBind(2v1))" [label="bind\nsrc: \n!bind $GconStartExecConnector.msg
+\ndst: \naccount_id: $ACCOUNT_ID
+"]
+"Bind(KeyBind(3v1))" [label="bind\nsrc: \n!bind $GconOpenStream[1].msg
+\ndst: \nconnection:
+  account_id: $ACCOUNT_ID
+stream_id: $STREAM_ID[1]
+"]
+"Bind(KeyBind(4v1))" [label="bind\nsrc: \n!bind $GconOpenStream[2].msg
+\ndst: \nconnection:
+  account_id: $ACCOUNT_ID
+stream_id: $STREAM_ID[2]
+"]
+"Bind(KeyBind(5v1))" [label="bind\nsrc: \n!bind $GconPollOrders.msg
+\ndst: \nconnection: $GconPollOrders.connection
+"]
+"Send(KeySend(1v1))" [label="send 'protocol_control::Start'\nfrom: ACT:someone-else\nto: \ndata: !literal
+target:
+  ExecGate: 104
+"]
+"Send(KeySend(2v1))" [label="send 'gate_sdk::exec::protocol::GconConnectorStarted'\nfrom: ACT:conn\nto: ACT:gate\ndata: !bind
+account_id: $ACCOUNT_ID
+"]
+"Send(KeySend(3v1))" [label="send 'gate_sdk::exec::protocol::GconStreamOpened'\nfrom: ACT:conn\nto: ACT:gate\ndata: !bind
+open: $GconOpenStream[1].msg
+"]
+"Send(KeySend(4v1))" [label="send 'gate_sdk::exec::protocol::GconStreamOpened'\nfrom: ACT:conn\nto: ACT:gate\ndata: !bind
+open: $GconOpenStream[2].msg
+"]
+"Send(KeySend(5v1))" [label="send 'gate_sdk::exec::protocol::GconPollOrdersFinished'\nfrom: ACT:conn\nto: ACT:gate\ndata: !bind
+platform_time: $ENV_NOW.nanos
+reports: []
+request:
+  asset_id: null
+  connection: $GconPollOrders.connection
+  happens_after_exchange_time: null
+  instrument_id: null
+  kind: Active
+total_orders_polled: 0
+"]
+"Send(KeySend(6v1))" [label="send 'cqg::exec::custom::CqgCustomMessage'\nfrom: ACT:conn\nto: ACT:gate\ndata: !bind
+PositionStatus:
+  account_id: $ACCOUNT_ID
+  instrument_id: I:108
+  status:
+    is_snapshot: true
+    open_positions:
+    - id: 1
+      qty: 1.0
+  stream_id: $STREAM_ID[1]
+"]
+"Send(KeySend(7v1))" [label="send 'cqg::exec::custom::CqgCustomMessage'\nfrom: ACT:conn\nto: ACT:gate\ndata: !bind
+PositionsInitialSyncDone:
+  account_id: $ACCOUNT_ID
+  stream_id: $STREAM_ID[1]
+"]
+"Send(KeySend(8v1))" [label="send 'cqg::exec::custom::CqgCustomMessage'\nfrom: ACT:conn\nto: ACT:gate\ndata: !bind
+PositionStatus:
+  account_id: $ACCOUNT_ID
+  instrument_id: I:108
+  status:
+    is_snapshot: true
+    open_positions:
+    - id: 15
+      qty: 1.0
+  stream_id: $STREAM_ID[2]
+"]
+"Send(KeySend(9v1))" [label="send 'cqg::exec::custom::CqgCustomMessage'\nfrom: ACT:conn\nto: ACT:gate\ndata: !bind
+PositionsInitialSyncDone:
+  account_id: $ACCOUNT_ID
+  stream_id: $STREAM_ID[2]
+"]
+"Send(KeySend(10v1))" [label="send 'cqg::exec::custom::CqgCustomMessage'\nfrom: ACT:conn\nto: ACT:gate\ndata: !bind
+PositionStatus:
+  account_id: $ACCOUNT_ID
+  instrument_id: I:108
+  status:
+    is_snapshot: false
+    open_positions:
+    - id: 1
+      qty: 3.0
+    - id: 2
+      qty: 1.0
+  stream_id: $STREAM_ID[1]
+"]
+"Send(KeySend(11v1))" [label="send 'cqg::exec::custom::CqgCustomMessage'\nfrom: ACT:conn\nto: ACT:gate\ndata: !bind
+PositionStatus:
+  account_id: $ACCOUNT_ID
+  instrument_id: I:108
+  status:
+    is_snapshot: false
+    open_positions:
+    - id: 15
+      qty: 3.0
+    - id: 16
+      qty: 1.0
+  stream_id: $STREAM_ID[2]
+"]
+"Recv(KeyRecv(1v1))" [label="recv 'protocol_coordinator::SubscribeToInstrumentDynamicData'\nfrom: ACT:gate\nto: \ndata: !bind $_
+"]
+"Recv(KeyRecv(2v1))" [label="recv 'protocol_real_account::FetchBalancesSnapshot'\nfrom: ACT:gate\nto: \ndata: !bind
+- real_account
+- FetchBalancesSnapshot
+- account_id: $ACCOUNT_ID
+"]
+"Recv(KeyRecv(3v1))" [label="recv 'protocol_real_account::FetchPositionsSnapshot'\nfrom: ACT:gate\nto: \ndata: !bind
+- real_account
+- FetchPositionsSnapshot
+- account_id: $ACCOUNT_ID
+"]
+"Recv(KeyRecv(4v1))" [label="recv 'protocol_account::UpdateRealAccountStatus'\nfrom: ACT:gate\nto: \ndata: !bind $UpdateRealAccountStatus.msg
+"]
+"Recv(KeyRecv(5v1))" [label="recv 'protocol_gates::ExecGateStatusReport'\nfrom: ACT:gate\nto: \ndata: !bind $ExecGateStatusReport.msg
+"]
+"Recv(KeyRecv(6v1))" [label="recv 'protocol_state::LoadState'\nfrom: ACT:gate\nto: \ndata: !bind $LoadState.request
+"]
+"Recv(KeyRecv(7v1))" [label="recv 'gate_sdk::exec::protocol::GconStartExecConnector'\nfrom: ACT:gate\nto: \ndata: !bind
+- gate_sdk
+- GconStartExecConnector
+- $GconStartExecConnector.msg
+"]
+"Recv(KeyRecv(8v1))" [label="recv 'gate_sdk::exec::protocol::GconOpenStream'\nfrom: ACT:gate\nto: ACT:conn\ndata: !bind
+- gate_sdk
+- GconOpenStream
+- $GconOpenStream[1].msg
+"]
+"Recv(KeyRecv(9v1))" [label="recv 'gate_sdk::exec::protocol::GconOpenStream'\nfrom: ACT:gate\nto: ACT:conn\ndata: !bind
+- gate_sdk
+- GconOpenStream
+- $GconOpenStream[2].msg
+"]
+"Recv(KeyRecv(10v1))" [label="recv 'gate_sdk::exec::protocol::GconPollOrders'\nfrom: ACT:gate\nto: ACT:conn\ndata: !bind
+- gate_sdk
+- GconPollOrders
+- $GconPollOrders.msg
+"]
+"Recv(KeyRecv(11v1))" [label="recv 'protocol_real_account::PositionCorrected'\nfrom: ACT:gate\nto: \ndata: !bind
+- real_account
+- PositionCorrected
+- account_id: $ACCOUNT_ID
+  amount_total: '4.0'
+  instrument_id: I:108:BTCUSDT|CmeGlobexCqg
+"]
+"Respond(KeyRespond(1v1))" [label="respond 'protocol_coordinator::SubscribeToInstrumentDynamicData'\nfrom: ACT:someone-else"]
+"Respond(KeyRespond(2v1))" [label="respond 'protocol_real_account::FetchBalancesSnapshot'\nfrom: ACT:someone-else"]
+"Respond(KeyRespond(3v1))" [label="respond 'protocol_real_account::FetchPositionsSnapshot'\nfrom: ACT:someone-else"]
+"Respond(KeyRespond(4v1))" [label="respond 'protocol_state::LoadState'\nfrom: ACT:someone-else"]
+"Delay(KeyDelay(1v1))" [label="delay 180s by 12s"]
+"Delay(KeyDelay(2v1))" [label="delay 10s by 1s"]
+  "Bind(KeyBind(2v1))" -> "Send(KeySend(2v1))"
+  "Bind(KeyBind(3v1))" -> "Delay(KeyDelay(2v1))"
+  "Bind(KeyBind(3v1))" -> "Send(KeySend(3v1))"
+  "Bind(KeyBind(4v1))" -> "Delay(KeyDelay(2v1))"
+  "Bind(KeyBind(4v1))" -> "Send(KeySend(4v1))"
+  "Bind(KeyBind(5v1))" -> "Send(KeySend(5v1))"
+  "Delay(KeyDelay(2v1))" -> "Send(KeySend(10v1))"
+  "Delay(KeyDelay(2v1))" -> "Send(KeySend(11v1))"
+  "Recv(KeyRecv(10v1))" -> "Bind(KeyBind(5v1))"
+  "Recv(KeyRecv(1v1))" -> "Respond(KeyRespond(1v1))"
+  "Recv(KeyRecv(2v1))" -> "Respond(KeyRespond(2v1))"
+  "Recv(KeyRecv(3v1))" -> "Respond(KeyRespond(3v1))"
+  "Recv(KeyRecv(6v1))" -> "Respond(KeyRespond(4v1))"
+  "Recv(KeyRecv(7v1))" -> "Bind(KeyBind(2v1))"
+  "Recv(KeyRecv(8v1))" -> "Bind(KeyBind(3v1))"
+  "Recv(KeyRecv(9v1))" -> "Bind(KeyBind(4v1))"
+  "Send(KeySend(10v1))" -> "Recv(KeyRecv(11v1))"
+  "Send(KeySend(11v1))" -> "Recv(KeyRecv(11v1))"
+  "Send(KeySend(1v1))" -> "Recv(KeyRecv(1v1))"
+  "Send(KeySend(1v1))" -> "Recv(KeyRecv(2v1))"
+  "Send(KeySend(1v1))" -> "Recv(KeyRecv(3v1))"
+  "Send(KeySend(1v1))" -> "Recv(KeyRecv(4v1))"
+  "Send(KeySend(1v1))" -> "Recv(KeyRecv(5v1))"
+  "Send(KeySend(1v1))" -> "Recv(KeyRecv(6v1))"
+  "Send(KeySend(1v1))" -> "Recv(KeyRecv(7v1))"
+  "Send(KeySend(2v1))" -> "Recv(KeyRecv(10v1))"
+  "Send(KeySend(2v1))" -> "Recv(KeyRecv(8v1))"
+  "Send(KeySend(2v1))" -> "Recv(KeyRecv(9v1))"
+  "Send(KeySend(3v1))" -> "Send(KeySend(6v1))"
+  "Send(KeySend(4v1))" -> "Send(KeySend(8v1))"
+  "Send(KeySend(6v1))" -> "Send(KeySend(7v1))"
+  "Send(KeySend(8v1))" -> "Send(KeySend(9v1))"
+}

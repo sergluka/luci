@@ -12,14 +12,12 @@ use crate::{
     bindings,
     execution::{
         EventBind, EventDelay, EventKey, EventRecv, EventRespond, EventSend, Executable, KeyDelay,
-        KeyRecv, KeyRespond, KeySend,
+        KeyRecv, KeyRespond, KeySend, Report,
     },
     marshalling,
     names::{ActorName, EventName},
     scenario::Msg,
 };
-
-use super::Report;
 
 #[derive(Debug, thiserror::Error)]
 pub enum RunError {
