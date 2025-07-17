@@ -15,7 +15,6 @@ use crate::{
 mod build;
 mod report;
 mod runner;
-mod visualization;
 
 pub use build::BuildError;
 pub use report::Report;

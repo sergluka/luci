@@ -1,21 +1,11 @@
-use serde::Deserialize;
 use std::{
     fs::{read_to_string, File},
     io::{Read, Write},
     path::PathBuf,
 };
 
-use clap::{Parser, ValueEnum};
-use luci::{execution::Executable, scenario::Scenario, visualization::RenderGraph};
-
-#[derive(Clone, Copy, Debug, Deserialize, ValueEnum)]
-#[serde(rename_all = "snake_case")]
-enum GraphDrawSource {
-    #[clap(name = "raw")]
-    Scenario,
-    #[clap(name = "graph")]
-    Executable,
-}
+use clap::Parser;
+use luci::{scenario::Scenario, visualization::draw_scenario};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -27,12 +17,6 @@ struct Args {
     scenario_file: Option<PathBuf>,
     #[clap(long = "output", short = 'o', help = "Graphviz file (default: stdout")]
     output_file: Option<PathBuf>,
-    #[clap(
-        long = "source",
-        short = 's',
-        help = "Source of data. Raw scenario, or parsed graph"
-    )]
-    source: GraphDrawSource,
 }
 
 fn main() {
@@ -72,33 +56,23 @@ fn run(args: &Args) -> String {
     let scenario: Scenario =
         serde_yaml::from_str(&scenario).expect("Failed to parse YAML scenario file");
 
-    match args.source {
-        GraphDrawSource::Scenario => scenario.render(),
-        GraphDrawSource::Executable => {
-            let executable =
-                Executable::build(&scenario, None).expect("Failed to build execution graph");
-            executable.render()
-        }
-    }
+    draw_scenario(&scenario)
 }
 
 #[cfg(test)]
 mod test {
-    use crate::GraphDrawSource;
     use test_case::test_case;
 
     use super::run;
 
-    #[test_case(GraphDrawSource::Scenario; "graph from yaml")]
-    #[test_case(GraphDrawSource::Executable; "graph from executable")]
-    fn output_snapshot(source: GraphDrawSource) {
+    #[test]
+    fn output_snapshot() {
         let args = super::Args {
             scenario_file: Some("tests/luci_graph/sample.yml".into()),
             output_file: None,
-            source,
         };
         let result = run(&args);
 
-        insta::assert_snapshot!(format!("graph from {:?}", source), result);
+        insta::assert_snapshot!(result);
     }
 }

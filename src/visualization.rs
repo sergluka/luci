@@ -1,9 +1,11 @@
-pub enum OutputFormat {
-    Dot,
+use crate::scenario::Scenario;
+
+pub trait Draw<T> {
+    fn draw(&self, item: &T) -> String;
 }
 
-pub trait RenderGraph {
-    const OUTPUT: OutputFormat;
+pub(crate) struct DiGraphDrawer;
 
-    fn render(&self) -> String;
+pub fn draw_scenario(scenario: &Scenario) -> String {
+    DiGraphDrawer.draw(scenario)
 }

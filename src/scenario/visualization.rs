@@ -2,20 +2,18 @@ use std::collections::HashSet;
 
 use crate::{
     scenario::DefEventKind,
-    visualization::{OutputFormat, RenderGraph},
+    visualization::{DiGraphDrawer, Draw},
 };
 
 use super::{DefEvent, Scenario};
 
-impl RenderGraph for Scenario {
-    const OUTPUT: OutputFormat = OutputFormat::Dot;
-
-    fn render(&self) -> String {
+impl Draw<Scenario> for DiGraphDrawer {
+    fn draw(&self, item: &Scenario) -> String {
         let mut acc = String::new();
         acc.push_str("digraph test { rankdir=LR layout=dot\n");
 
         let mut seen_ids = HashSet::new();
-        self.events
+        item.events
             .iter()
             .filter(|event| seen_ids.insert(event.id.clone()))
             .cloned()
@@ -26,7 +24,7 @@ impl RenderGraph for Scenario {
                 acc.push('\n');
             });
 
-        for event in &self.events {
+        for event in &item.events {
             for subnode_name in &event.prerequisites {
                 acc.push_str(&format!("  \"{}\" -> \"{}\"\n", subnode_name, event.id));
             }
