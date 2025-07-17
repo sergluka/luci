@@ -42,15 +42,14 @@ fn run(args: &Args) -> String {
         .with_max_level(tracing::Level::DEBUG)
         .try_init();
 
-    let scenario = match &args.scenario_file {
-        Some(path) => read_to_string(path).expect("Failed to read scenario file"),
-        None => {
-            let mut input = String::new();
-            std::io::stdin()
-                .read_to_string(&mut input)
-                .expect("Failed to read from stdin");
-            input.trim().to_string()
-        }
+    let scenario = if let Some(path) = &args.scenario_file {
+        read_to_string(path).expect("Failed to read scenario file")
+    } else {
+        let mut input = String::new();
+        std::io::stdin()
+            .read_to_string(&mut input)
+            .expect("Failed to read from stdin");
+        input.trim().to_string()
     };
 
     let scenario: Scenario =
@@ -61,8 +60,6 @@ fn run(args: &Args) -> String {
 
 #[cfg(test)]
 mod test {
-    use test_case::test_case;
-
     use super::run;
 
     #[test]

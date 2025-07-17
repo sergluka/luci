@@ -2,93 +2,94 @@
 source: src/bin/luci_graph.rs
 expression: result
 ---
-digraph test { rankdir=LR layout=dot
+digraph {
+  rankdir=LR;
   "EVT:run for at least" [label="DELAY\nid=EVT:run for at least\n\nfor: 3m
 step: 12s
-"]
+"];
   "EVT:bind:Env" [label="BIND\nid=EVT:bind:Env\n\ndst:
-- cqg
+- abc
 - Env
 - now_nanos: $ENV_NOW.nanos
   now_rfc3339: $ENV_NOW.rfc3339
 src: !inject ENV
-"]
+"];
   "EVT:start" [label="SEND\nid=EVT:start\n\nfrom: someone-else
 type: Start
 data: !literal
   target:
     NodeId: 104
-"]
+"];
   "EVT:request:SubscribeToData" [label="RECV\nid=EVT:request:SubscribeToData\n\ntype: SubscribeToData
 data: !bind $_
 from: master
-"]
+"];
   "EVT:response:SubscribeToData" [label="RESPOND\nid=EVT:response:SubscribeToData\n\nfrom: someone-else
 to_request: request:SubscribeToData
 data: !inject SubscribeToData::Response
-"]
+"];
   "EVT:request:FetchSettings" [label="RECV\nid=EVT:request:FetchSettings\n\ntype: FetchSettings
 data: !bind
 - real
 - FetchSettings
 - account_id: $ACCOUNT_ID
 from: master
-"]
+"];
   "EVT:response:FetchSettings" [label="RESPOND\nid=EVT:response:FetchSettings\n\nfrom: someone-else
 to_request: request:FetchSettings
 data: !bind
   account_id: $ACCOUNT_ID
   entries: {}
   local_time: $ENV_NOW.nanos
-"]
+"];
   "EVT:request:FetchData" [label="RECV\nid=EVT:request:FetchData\n\ntype: FetchData
 data: !bind
 - real
 - FetchData
 - account_id: $ACCOUNT_ID
 from: master
-"]
+"];
   "EVT:response:FetchData" [label="RESPOND\nid=EVT:response:FetchData\n\nfrom: someone-else
 to_request: request:FetchData
 data: !bind
   account_id: $ACCOUNT_ID
   entries: {}
   local_time: $ENV_NOW.nanos
-"]
+"];
   "EVT:msg:UpdateStatus" [label="RECV\nid=EVT:msg:UpdateStatus\n\ntype: UpdateStatus
 data: !bind $UpdateStatus.msg
 from: master
-"]
+"];
   "EVT:msg:RunStatusReport" [label="RECV\nid=EVT:msg:RunStatusReport\n\ntype: RunStatusReport
 data: !bind $RunStatusReport.msg
 from: master
-"]
+"];
   "EVT:request:LoadState" [label="RECV\nid=EVT:request:LoadState\n\ntype: LoadState
 data: !bind $LoadState.request
 from: master
-"]
+"];
   "EVT:response:LoadState" [label="RESPOND\nid=EVT:response:LoadState\n\nfrom: someone-else
 to_request: request:LoadState
 data: !literal
   Err: NotFound
-"]
+"];
   "EVT:msg:StartWorker" [label="RECV\nid=EVT:msg:StartWorker\n\ntype: StartWorker
 data: !bind
 - master_sdk
 - StartWorker
 - $StartWorker.msg
 from: master
-"]
+"];
   "EVT:bind:StartWorker" [label="BIND\nid=EVT:bind:StartWorker\n\ndst:
   account_id: $ACCOUNT_ID
 src: !bind $StartWorker.msg
-"]
+"];
   "EVT:msg:WorkerIsStarted" [label="SEND\nid=EVT:msg:WorkerIsStarted\n\nfrom: conn
 to: master
 type: WorkerIsStarted
 data: !bind
   account_id: $ACCOUNT_ID
-"]
+"];
   "EVT:msg:OpenConnection[1]" [label="RECV\nid=EVT:msg:OpenConnection[1]\n\ntype: OpenConnection
 data: !bind
 - master_sdk
@@ -96,7 +97,7 @@ data: !bind
 - $OpenConnection[1].msg
 from: master
 to: conn
-"]
+"];
   "EVT:msg:OpenConnection[2]" [label="RECV\nid=EVT:msg:OpenConnection[2]\n\ntype: OpenConnection
 data: !bind
 - master_sdk
@@ -104,43 +105,43 @@ data: !bind
 - $OpenConnection[2].msg
 from: master
 to: conn
-"]
+"];
   "EVT:bind:OpenConnection[1]" [label="BIND\nid=EVT:bind:OpenConnection[1]\n\ndst:
   connection:
     account_id: $ACCOUNT_ID
   stream_id: $STREAM_ID[1]
 src: !bind $OpenConnection[1].msg
-"]
+"];
   "EVT:bind:OpenConnection[2]" [label="BIND\nid=EVT:bind:OpenConnection[2]\n\ndst:
   connection:
     account_id: $ACCOUNT_ID
   stream_id: $STREAM_ID[2]
 src: !bind $OpenConnection[2].msg
-"]
+"];
   "EVT:msg:ConnectionIsOpened[1]" [label="SEND\nid=EVT:msg:ConnectionIsOpened[1]\n\nfrom: conn
 to: master
 type: ConnectionIsOpened
 data: !bind
   open: $OpenConnection[1].msg
-"]
+"];
   "EVT:msg:ConnectionIsOpened[2]" [label="SEND\nid=EVT:msg:ConnectionIsOpened[2]\n\nfrom: conn
 to: master
 type: ConnectionIsOpened
 data: !bind
   open: $OpenConnection[2].msg
-"]
-  "EVT:msg:GconPollOrders" [label="RECV\nid=EVT:msg:GconPollOrders\n\ntype: GconPollOrders
+"];
+  "EVT:msg:Poll" [label="RECV\nid=EVT:msg:Poll\n\ntype: Poll
 data: !bind
 - master_sdk
-- GconPollOrders
-- $GconPollOrders.msg
+- Poll
+- $Poll.msg
 from: master
 to: conn
-"]
-  "EVT:bind:GconPollOrders" [label="BIND\nid=EVT:bind:GconPollOrders\n\ndst:
-  connection: $GconPollOrders.connection
-src: !bind $GconPollOrders.msg
-"]
+"];
+  "EVT:bind:Poll" [label="BIND\nid=EVT:bind:Poll\n\ndst:
+  connection: $Poll.connection
+src: !bind $Poll.msg
+"];
   "EVT:msg:InitCompleted" [label="SEND\nid=EVT:msg:InitCompleted\n\nfrom: conn
 to: master
 type: InitCompleted
@@ -148,18 +149,18 @@ data: !bind
   local_time: $ENV_NOW.nanos
   reports: []
   request:
-    connection: $GconPollOrders.connection
+    connection: $Poll.connection
     happens_after_exchange_time: null
     item_id: null
     kind: Active
     user_id: null
   total_orders_polled: 0
-"]
-  "EVT:msg:Cqg::PositionStatus[1].snapshot" [label="SEND\nid=EVT:msg:Cqg::PositionStatus[1].snapshot\n\nfrom: conn
+"];
+  "EVT:msg:abc::MessageStatus[1].snapshot" [label="SEND\nid=EVT:msg:abc::MessageStatus[1].snapshot\n\nfrom: conn
 to: master
 type: CustomMessage
 data: !bind
-  PositionStatus:
+  MessageStatus:
     account_id: $ACCOUNT_ID
     status:
       is_ready: true
@@ -168,20 +169,20 @@ data: !bind
         pid: 1.0
     stream_id: $STREAM_ID[1]
     user_id: 108
-"]
-  "EVT:msg:Cqg::PositionsInitialSyncDone[1]" [label="SEND\nid=EVT:msg:Cqg::PositionsInitialSyncDone[1]\n\nfrom: conn
+"];
+  "EVT:msg:abc::MessagesInitialSyncDone[1]" [label="SEND\nid=EVT:msg:abc::MessagesInitialSyncDone[1]\n\nfrom: conn
 to: master
 type: CustomMessage
 data: !bind
-  PositionsInitialSyncDone:
+  MessagesInitialSyncDone:
     account_id: $ACCOUNT_ID
     stream_id: $STREAM_ID[1]
-"]
-  "EVT:msg:Cqg::PositionStatus[2].snapshot" [label="SEND\nid=EVT:msg:Cqg::PositionStatus[2].snapshot\n\nfrom: conn
+"];
+  "EVT:msg:abc::MessageStatus[2].snapshot" [label="SEND\nid=EVT:msg:abc::MessageStatus[2].snapshot\n\nfrom: conn
 to: master
 type: CustomMessage
 data: !bind
-  PositionStatus:
+  MessageStatus:
     account_id: $ACCOUNT_ID
     status:
       is_ready: true
@@ -190,23 +191,23 @@ data: !bind
         pid: 1.0
     stream_id: $STREAM_ID[2]
     user_id: I:108
-"]
-  "EVT:msg:Cqg::PositionsInitialSyncDone[2]" [label="SEND\nid=EVT:msg:Cqg::PositionsInitialSyncDone[2]\n\nfrom: conn
+"];
+  "EVT:msg:abc::MessagesInitialSyncDone[2]" [label="SEND\nid=EVT:msg:abc::MessagesInitialSyncDone[2]\n\nfrom: conn
 to: master
 type: CustomMessage
 data: !bind
-  PositionsInitialSyncDone:
+  MessagesInitialSyncDone:
     account_id: $ACCOUNT_ID
     stream_id: $STREAM_ID[2]
-"]
+"];
   "EVT:10-sec-happens_after-both-connections-opened" [label="DELAY\nid=EVT:10-sec-happens_after-both-connections-opened\n\nfor: 10s
 step: 1s
-"]
-  "EVT:msg:Cqg::PositionStatus[1].update" [label="SEND\nid=EVT:msg:Cqg::PositionStatus[1].update\n\nfrom: conn
+"];
+  "EVT:msg:abc::MessageStatus[1].update" [label="SEND\nid=EVT:msg:abc::MessageStatus[1].update\n\nfrom: conn
 to: master
 type: CustomMessage
 data: !bind
-  PositionStatus:
+  MessageStatus:
     account_id: $ACCOUNT_ID
     status:
       is_ready: false
@@ -217,12 +218,12 @@ data: !bind
         pid: 1.0
     stream_id: $STREAM_ID[1]
     user_id: I:108
-"]
-  "EVT:msg:Cqg::PositionStatus[2].update" [label="SEND\nid=EVT:msg:Cqg::PositionStatus[2].update\n\nfrom: conn
+"];
+  "EVT:msg:abc::MessageStatus[2].update" [label="SEND\nid=EVT:msg:abc::MessageStatus[2].update\n\nfrom: conn
 to: master
 type: CustomMessage
 data: !bind
-  PositionStatus:
+  MessageStatus:
     account_id: $ACCOUNT_ID
     status:
       is_ready: false
@@ -233,7 +234,7 @@ data: !bind
         pid: 1
     stream_id: $STREAM_ID[2]
     user_id: 108
-"]
+"];
   "EVT:msg:DataAdjustment" [label="RECV\nid=EVT:msg:DataAdjustment\n\ntype: DataAdjustment
 data: !bind
 - real
@@ -242,38 +243,37 @@ data: !bind
   amount_total: '4.0'
   user_id: 108
 from: master
-"]
-  "EVT:start" -> "EVT:request:SubscribeToData"
-  "EVT:request:SubscribeToData" -> "EVT:response:SubscribeToData"
-  "EVT:start" -> "EVT:request:FetchSettings"
-  "EVT:request:FetchSettings" -> "EVT:response:FetchSettings"
-  "EVT:start" -> "EVT:request:FetchData"
-  "EVT:request:FetchData" -> "EVT:response:FetchData"
-  "EVT:start" -> "EVT:msg:UpdateStatus"
-  "EVT:start" -> "EVT:msg:RunStatusReport"
-  "EVT:start" -> "EVT:request:LoadState"
-  "EVT:request:LoadState" -> "EVT:response:LoadState"
-  "EVT:start" -> "EVT:msg:StartWorker"
-  "EVT:msg:StartWorker" -> "EVT:bind:StartWorker"
-  "EVT:bind:StartWorker" -> "EVT:msg:WorkerIsStarted"
-  "EVT:msg:WorkerIsStarted" -> "EVT:msg:OpenConnection[1]"
-  "EVT:msg:WorkerIsStarted" -> "EVT:msg:OpenConnection[2]"
-  "EVT:msg:OpenConnection[1]" -> "EVT:bind:OpenConnection[1]"
-  "EVT:msg:OpenConnection[2]" -> "EVT:bind:OpenConnection[2]"
-  "EVT:bind:OpenConnection[1]" -> "EVT:msg:ConnectionIsOpened[1]"
-  "EVT:bind:OpenConnection[2]" -> "EVT:msg:ConnectionIsOpened[2]"
-  "EVT:msg:WorkerIsStarted" -> "EVT:msg:GconPollOrders"
-  "EVT:msg:GconPollOrders" -> "EVT:bind:GconPollOrders"
-  "EVT:bind:GconPollOrders" -> "EVT:msg:InitCompleted"
-  "EVT:msg:ConnectionIsOpened[1]" -> "EVT:msg:Cqg::PositionStatus[1].snapshot"
-  "EVT:msg:Cqg::PositionStatus[1].snapshot" -> "EVT:msg:Cqg::PositionsInitialSyncDone[1]"
-  "EVT:msg:ConnectionIsOpened[2]" -> "EVT:msg:Cqg::PositionStatus[2].snapshot"
-  "EVT:msg:Cqg::PositionStatus[2].snapshot" -> "EVT:msg:Cqg::PositionsInitialSyncDone[2]"
-  "EVT:bind:OpenConnection[1]" -> "EVT:10-sec-happens_after-both-connections-opened"
-  "EVT:bind:OpenConnection[2]" -> "EVT:10-sec-happens_after-both-connections-opened"
-  "EVT:10-sec-happens_after-both-connections-opened" -> "EVT:msg:Cqg::PositionStatus[1].update"
-  "EVT:10-sec-happens_after-both-connections-opened" -> "EVT:msg:Cqg::PositionStatus[2].update"
-  "EVT:msg:Cqg::PositionStatus[1].update" -> "EVT:msg:DataAdjustment"
-  "EVT:msg:Cqg::PositionStatus[2].update" -> "EVT:msg:DataAdjustment"
-
+"];
+  "EVT:start" -> "EVT:request:SubscribeToData";
+  "EVT:request:SubscribeToData" -> "EVT:response:SubscribeToData";
+  "EVT:start" -> "EVT:request:FetchSettings";
+  "EVT:request:FetchSettings" -> "EVT:response:FetchSettings";
+  "EVT:start" -> "EVT:request:FetchData";
+  "EVT:request:FetchData" -> "EVT:response:FetchData";
+  "EVT:start" -> "EVT:msg:UpdateStatus";
+  "EVT:start" -> "EVT:msg:RunStatusReport";
+  "EVT:start" -> "EVT:request:LoadState";
+  "EVT:request:LoadState" -> "EVT:response:LoadState";
+  "EVT:start" -> "EVT:msg:StartWorker";
+  "EVT:msg:StartWorker" -> "EVT:bind:StartWorker";
+  "EVT:bind:StartWorker" -> "EVT:msg:WorkerIsStarted";
+  "EVT:msg:WorkerIsStarted" -> "EVT:msg:OpenConnection[1]";
+  "EVT:msg:WorkerIsStarted" -> "EVT:msg:OpenConnection[2]";
+  "EVT:msg:OpenConnection[1]" -> "EVT:bind:OpenConnection[1]";
+  "EVT:msg:OpenConnection[2]" -> "EVT:bind:OpenConnection[2]";
+  "EVT:bind:OpenConnection[1]" -> "EVT:msg:ConnectionIsOpened[1]";
+  "EVT:bind:OpenConnection[2]" -> "EVT:msg:ConnectionIsOpened[2]";
+  "EVT:msg:WorkerIsStarted" -> "EVT:msg:Poll";
+  "EVT:msg:Poll" -> "EVT:bind:Poll";
+  "EVT:bind:Poll" -> "EVT:msg:InitCompleted";
+  "EVT:msg:ConnectionIsOpened[1]" -> "EVT:msg:abc::MessageStatus[1].snapshot";
+  "EVT:msg:abc::MessageStatus[1].snapshot" -> "EVT:msg:abc::MessagesInitialSyncDone[1]";
+  "EVT:msg:ConnectionIsOpened[2]" -> "EVT:msg:abc::MessageStatus[2].snapshot";
+  "EVT:msg:abc::MessageStatus[2].snapshot" -> "EVT:msg:abc::MessagesInitialSyncDone[2]";
+  "EVT:bind:OpenConnection[1]" -> "EVT:10-sec-happens_after-both-connections-opened";
+  "EVT:bind:OpenConnection[2]" -> "EVT:10-sec-happens_after-both-connections-opened";
+  "EVT:10-sec-happens_after-both-connections-opened" -> "EVT:msg:abc::MessageStatus[1].update";
+  "EVT:10-sec-happens_after-both-connections-opened" -> "EVT:msg:abc::MessageStatus[2].update";
+  "EVT:msg:abc::MessageStatus[1].update" -> "EVT:msg:DataAdjustment";
+  "EVT:msg:abc::MessageStatus[2].update" -> "EVT:msg:DataAdjustment";
 }

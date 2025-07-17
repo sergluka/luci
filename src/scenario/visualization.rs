@@ -2,48 +2,38 @@ use std::{collections::HashSet, fmt::Display};
 
 use dot_writer::{Attributes, DotWriter, Scope};
 
-use crate::{
-    scenario::DefEventKind,
-    visualization::{DiGraphDrawer, Draw},
-};
+use crate::scenario::DefEventKind;
 
 use super::{DefEvent, Scenario};
 
-impl Draw<Scenario> for DiGraphDrawer {
-    fn draw(&self, item: &Scenario) -> String {
-        let mut output_bytes = Vec::new();
+pub(crate) fn draw(scenario: &Scenario) -> String {
+    let mut output_bytes = Vec::new();
 
-        let mut writer = DotWriter::from(&mut output_bytes);
-        writer.set_pretty_print(true);
+    let mut writer = DotWriter::from(&mut output_bytes);
+    writer.set_pretty_print(true);
 
-        let mut digraph = writer.digraph();
-        digraph.set_rank_direction(dot_writer::RankDirection::LeftRight);
+    let mut digraph = writer.digraph();
+    digraph.set_rank_direction(dot_writer::RankDirection::LeftRight);
 
-        let mut seen_ids = HashSet::new();
-        for event in item
-            .events
-            .iter()
-            .filter(|event| seen_ids.insert(event.id.clone()))
-            .cloned()
-            .collect::<Vec<DefEvent>>()
-        {
-            draw_node(&mut digraph, &event);
-        }
-
-        for event in &item.events {
-            for subnode_name in &event.prerequisites {
-                digraph.edge(quote(subnode_name), quote(&event.id));
-            }
-        }
-
-        drop(digraph);
-
-        String::from_utf8(output_bytes).unwrap()
+    let mut seen_ids = HashSet::new();
+    for event in scenario
+        .events
+        .iter()
+        .filter(|event| seen_ids.insert(event.id.clone()))
+        .collect::<Vec<&DefEvent>>()
+    {
+        draw_node(&mut digraph, &event);
     }
-}
 
-fn quote(str: &impl Display) -> String {
-    format!("\"{}\"", str.to_string())
+    for event in &scenario.events {
+        for subnode_name in &event.prerequisites {
+            digraph.edge(quote(subnode_name), quote(&event.id));
+        }
+    }
+
+    drop(digraph);
+
+    String::from_utf8(output_bytes).unwrap()
 }
 
 fn draw_node(digraph: &mut Scope, event: &DefEvent) {
@@ -59,4 +49,8 @@ fn draw_node(digraph: &mut Scope, event: &DefEvent) {
 
     let label = format!(r#"{}\nid={}\n\n{}"#, kind, event.id, data);
     node.set_label(&label);
+}
+
+fn quote(str: &impl Display) -> String {
+    format!("\"{}\"", str)
 }

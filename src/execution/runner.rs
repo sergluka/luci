@@ -7,7 +7,6 @@ use std::time::Duration;
 use tokio::time::Instant;
 use tracing::{debug, info, trace, warn};
 
-use crate::marshalling::MarshallingRegistry;
 use crate::{
     bindings,
     execution::{
@@ -116,7 +115,7 @@ impl<'a> Runner<'a> {
     /// - [Report] containing a text description of the test run if test was
     ///   completed without errors, either successfully or not.
     /// - [RunError] in case of any errors during the test run.
-    pub async fn run(mut self, messages: MarshallingRegistry) -> Result<Report, RunError> {
+    pub async fn run(mut self) -> Result<Report, RunError> {
         let mut unreached = self.executable.events.required.clone();
         let mut reached = HashMap::new();
 
@@ -127,7 +126,7 @@ impl<'a> Runner<'a> {
         } {
             debug!("firing: {:?}", event_key);
 
-            let fired_events = self.fire_event(&messages, event_key).await?;
+            let fired_events = self.fire_event(event_key).await?;
 
             for ek in fired_events.iter() {
                 let en = self.event_name(*ek).expect("unknown event-key");
@@ -196,7 +195,6 @@ impl<'a> Runner<'a> {
     // pub
     async fn fire_event(
         &mut self,
-        messages: &MarshallingRegistry,
         ready_event_key: ReadyEventKey,
     ) -> Result<Vec<EventKey>, RunError> {
         let event_key_opt = EventKey::try_from(ready_event_key).ok();
@@ -230,21 +228,18 @@ impl<'a> Runner<'a> {
 
         let mut actually_fired_events = vec![];
         match ready_event_key {
-            ReadyEventKey::Bind => {
-                self.fire_event_bind(messages, &mut actually_fired_events)
-                    .await?
-            }
+            ReadyEventKey::Bind => self.fire_event_bind(&mut actually_fired_events).await?,
             ReadyEventKey::Send(key) => {
-                self.fire_event_send(messages, key, &mut actually_fired_events)
+                self.fire_event_send(key, &mut actually_fired_events)
                     .await?
             }
             ReadyEventKey::Respond(key) => {
-                self.fire_event_respond(messages, key, &mut actually_fired_events)
+                self.fire_event_respond(key, &mut actually_fired_events)
                     .await?
             }
 
             ReadyEventKey::RecvOrDelay => {
-                self.fire_event_recv_or_delay(messages, &mut actually_fired_events)
+                self.fire_event_recv_or_delay(&mut actually_fired_events)
                     .await?
             }
         };
@@ -292,10 +287,9 @@ impl<'a> Runner<'a> {
 
     async fn fire_event_bind(
         &mut self,
-        messages: &MarshallingRegistry,
         actually_fired_events: &mut Vec<EventKey>,
     ) -> Result<(), RunError> {
-        let Executable { events } = self.executable;
+        let Executable { events, .. } = self.executable;
 
         let ready_bind_keys = {
             let mut tmp = self
@@ -327,9 +321,13 @@ impl<'a> Runner<'a> {
                     bindings::render(template.clone(), &self.scope).map_err(RunError::BindError)?
                 }
                 Msg::Inject(key) => {
-                    let m = messages.value(key).ok_or(RunError::Marshalling(
-                        format!("no such key: {:?}", key).into(),
-                    ))?;
+                    let m = self
+                        .executable
+                        .marshalling
+                        .value(key)
+                        .ok_or(RunError::Marshalling(
+                            format!("no such key: {:?}", key).into(),
+                        ))?;
                     serde_json::to_value(m).expect("can't serialize a message?")
                 }
             };
@@ -351,10 +349,11 @@ impl<'a> Runner<'a> {
 
     async fn fire_event_recv_or_delay(
         &mut self,
-        messages: &MarshallingRegistry,
         actually_fired_events: &mut Vec<EventKey>,
     ) -> Result<(), RunError> {
-        let Executable { events: vertices } = self.executable;
+        let Executable {
+            events: vertices, ..
+        } = self.executable;
 
         'recv_or_delay: loop {
             self.proxies[self.main_proxy_key].sync().await;
@@ -413,7 +412,11 @@ impl<'a> Runner<'a> {
 
                     let mut scope_txn = self.scope.txn();
 
-                    let marshaller = messages.resolve(&match_type).expect("bad FQN");
+                    let marshaller = self
+                        .executable
+                        .marshalling
+                        .resolve(&match_type)
+                        .expect("bad FQN");
 
                     if let Some(from_name) = match_from {
                         trace!("expecting source: {:?}", from_name);
@@ -513,11 +516,13 @@ impl<'a> Runner<'a> {
 
     async fn fire_event_send(
         &mut self,
-        messages: &MarshallingRegistry,
         event_key: KeySend,
         actually_fired_events: &mut Vec<EventKey>,
     ) -> Result<(), RunError> {
-        let Executable { events: vertices } = self.executable;
+        let Executable {
+            marshalling,
+            events: vertices,
+        } = self.executable;
         let EventSend {
             from: send_from,
             to: send_to,
@@ -554,10 +559,10 @@ impl<'a> Runner<'a> {
             &mut self.proxies[proxy_key]
         };
 
-        let marshaller = messages.resolve(&message_type).expect("invalid FQN");
+        let marshaller = marshalling.resolve(&message_type).expect("invalid FQN");
 
         let any_message = marshaller
-            .marshal_outbound_message(&messages, &self.scope, message_data.clone())
+            .marshal_outbound_message(&marshalling, &self.scope, message_data.clone())
             .map_err(RunError::Marshalling)?;
 
         if let Some(dst_addr) = send_to_addr_opt {
@@ -584,11 +589,13 @@ impl<'a> Runner<'a> {
 
     async fn fire_event_respond(
         &mut self,
-        messages: &MarshallingRegistry,
         k: KeyRespond,
         actually_fired_events: &mut Vec<EventKey>,
     ) -> Result<(), RunError> {
-        let Executable { events: vertices } = self.executable;
+        let Executable {
+            marshalling,
+            events: vertices,
+        } = self.executable;
 
         let EventRespond {
             respond_to,
@@ -613,7 +620,7 @@ impl<'a> Runner<'a> {
             self.main_proxy_key
         };
 
-        let request_marshaller = messages.resolve(&request_fqn).expect("invalid FQN");
+        let request_marshaller = marshalling.resolve(&request_fqn).expect("invalid FQN");
         let response_marshaller = request_marshaller
             .response()
             .expect("request_fqn does not point to a Request");
@@ -633,7 +640,7 @@ impl<'a> Runner<'a> {
             .respond(
                 responding_proxy,
                 token,
-                messages,
+                marshalling,
                 &self.scope,
                 message_data.clone(),
             )

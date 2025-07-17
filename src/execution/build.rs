@@ -49,14 +49,14 @@ pub enum BuildError<'a> {
 }
 
 impl Executable {
-    pub fn build<'s>(
-        scenario: &'s Scenario,
-        marshalling: Option<&MarshallingRegistry>,
-    ) -> Result<Self, BuildError<'s>> {
+    pub fn build(
+        marshalling: MarshallingRegistry,
+        scenario: &Scenario,
+    ) -> Result<Self, BuildError> {
         debug!("building...");
 
         debug!("storing type-aliases...");
-        let type_aliases = type_aliases(marshalling, &scenario.types)?;
+        let type_aliases = type_aliases(&marshalling, &scenario.types)?;
         for (a, fqn) in &type_aliases {
             trace!("- {:?} -> {:?}", a, fqn);
         }
@@ -68,7 +68,7 @@ impl Executable {
         }
 
         debug!("building the graph...");
-        let vertices = build_graph(&scenario.events, &type_aliases, &actors, marshalling)?;
+        let vertices = build_graph(&scenario.events, &type_aliases, &actors, &marshalling)?;
 
         debug!("- bind-vertices:\t{}", vertices.bind.len());
         debug!("- send-vertices:\t{}", vertices.send.len());
@@ -77,12 +77,15 @@ impl Executable {
         debug!("- delay-vertices:\t{}", vertices.delay.len());
 
         debug!("done!");
-        Ok(Executable { events: vertices })
+        Ok(Executable {
+            marshalling,
+            events: vertices,
+        })
     }
 }
 
 fn type_aliases<'a>(
-    marshalling: Option<&MarshallingRegistry>,
+    marshalling: &MarshallingRegistry,
     imports: impl IntoIterator<Item = &'a DefTypeAlias>,
 ) -> Result<HashMap<MessageName, Arc<str>>, BuildError<'a>> {
     use std::collections::hash_map::Entry::Vacant;
@@ -91,11 +94,9 @@ fn type_aliases<'a>(
         let Vacant(entry) = aliases.entry(import.type_alias.to_owned()) else {
             return Err(BuildError::DuplicateAlias(&import.type_alias));
         };
-        if let Some(marshalling) = marshalling {
-            let _marshaller = marshalling
-                .resolve(&import.type_name)
-                .ok_or(BuildError::UnknownFqn(&import.type_name))?;
-        }
+        let _marshaller = marshalling
+            .resolve(&import.type_name)
+            .ok_or(BuildError::UnknownFqn(&import.type_name))?;
 
         entry.insert(import.type_name.as_str().into());
     }
@@ -121,7 +122,7 @@ fn build_graph<'a>(
     event_defs: impl IntoIterator<Item = &'a DefEvent>,
     type_aliases: &HashMap<MessageName, Arc<str>>,
     actors: &HashSet<ActorName>,
-    marshalling: Option<&MarshallingRegistry>,
+    marshalling: &MarshallingRegistry,
 ) -> Result<Events, BuildError<'a>> {
     let mut v_delay = SlotMap::<KeyDelay, _>::default();
     let mut v_bind = SlotMap::<KeyBind, _>::default();
@@ -248,13 +249,11 @@ fn build_graph<'a>(
                     return Err(BuildError::UnknownActor(bad_actor));
                 }
 
-                if let Some(marshalling) = marshalling {
-                    if marshalling
-                        .resolve(&request_fqn)
-                        .is_none_or(|m| m.response().is_none())
-                    {
-                        return Err(BuildError::NotARequest(&to));
-                    }
+                if marshalling
+                    .resolve(&request_fqn)
+                    .is_none_or(|m| m.response().is_none())
+                {
+                    return Err(BuildError::NotARequest(&to));
                 }
 
                 let key = v_respond.insert(EventRespond {
