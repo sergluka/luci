@@ -13,16 +13,16 @@ impl Draw<Scenario> for DiGraphDrawer {
         acc.push_str("digraph test { rankdir=LR layout=dot\n");
 
         let mut seen_ids = HashSet::new();
-        item.events
+        for event in item
+            .events
             .iter()
             .filter(|event| seen_ids.insert(event.id.clone()))
             .cloned()
             .collect::<Vec<DefEvent>>()
-            .into_iter()
-            .for_each(|event| {
-                acc.push_str(&format!("  {}", render_node(&event)));
-                acc.push('\n');
-            });
+        {
+            acc.push_str(&format!("  {}", render_node(&event)));
+            acc.push('\n');
+        }
 
         for event in &item.events {
             for subnode_name in &event.prerequisites {
