@@ -20,7 +20,6 @@ pub(crate) fn draw(scenario: &Scenario) -> String {
         .events
         .iter()
         .filter(|event| seen_ids.insert(event.id.clone()))
-        .collect::<Vec<&DefEvent>>()
     {
         draw_node(&mut digraph, &event);
     }
