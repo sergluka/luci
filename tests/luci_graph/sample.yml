@@ -21,8 +21,8 @@ types:
     as: OpenConnection
   - use: protocol::ConnectionIsOpened
     as: ConnectionIsOpened
-  - use: protocol::GconPollOrders
-    as: GconPollOrders
+  - use: protocol::Poll
+    as: Poll
   - use: protocol::InitCompleted
     as: InitCompleted
   - use: custom::CustomMessage
@@ -44,7 +44,7 @@ events:
   - id: bind:Env
     bind:
       dst:
-        - cqg
+        - abc
         - Env
         - now_rfc3339: $ENV_NOW.rfc3339
           now_nanos: $ENV_NOW.nanos
@@ -268,31 +268,31 @@ events:
         bind:
           open: $OpenConnection[2].msg
 
-  - id: msg:GconPollOrders
+  - id: msg:Poll
     happens_after:
       - msg:WorkerIsStarted
     recv:
       from: master
       to: conn
-      type: GconPollOrders
+      type: Poll
       data:
         bind:
           - master_sdk
-          - GconPollOrders
-          - $GconPollOrders.msg
+          - Poll
+          - $Poll.msg
 
-  - id: bind:GconPollOrders
+  - id: bind:Poll
     happens_after:
-      - msg:GconPollOrders
+      - msg:Poll
     bind:
       dst:
-        connection: $GconPollOrders.connection
+        connection: $Poll.connection
       src:
-        bind: $GconPollOrders.msg
+        bind: $Poll.msg
 
   - id: msg:InitCompleted
     happens_after:
-      - bind:GconPollOrders
+      - bind:Poll
     send:
       from: conn
       to: master
@@ -302,14 +302,14 @@ events:
           local_time: $ENV_NOW.nanos
           reports: []
           request:
-            connection: $GconPollOrders.connection
+            connection: $Poll.connection
             kind: Active
             user_id: ~
             item_id: ~
             happens_after_exchange_time: ~
           total_orders_polled: 0
 
-  - id: msg:Cqg::PositionStatus[1].snapshot
+  - id: msg:abc::MessageStatus[1].snapshot
     happens_after:
       - msg:ConnectionIsOpened[1]
     send:
@@ -318,7 +318,7 @@ events:
       type: CustomMessage
       data:
         bind:
-          PositionStatus:
+          MessageStatus:
             account_id: $ACCOUNT_ID
             stream_id: $STREAM_ID[1]
             user_id: 108
@@ -327,20 +327,20 @@ events:
               items:
                 - id: 1
                   pid: 1.0
-  - id: msg:Cqg::PositionsInitialSyncDone[1]
+  - id: msg:abc::MessagesInitialSyncDone[1]
     happens_after:
-      - msg:Cqg::PositionStatus[1].snapshot
+      - msg:abc::MessageStatus[1].snapshot
     send:
       from: conn
       to: master
       type: CustomMessage
       data:
         bind:
-          PositionsInitialSyncDone:
+          MessagesInitialSyncDone:
             account_id: $ACCOUNT_ID
             stream_id: $STREAM_ID[1]
 
-  - id: msg:Cqg::PositionStatus[2].snapshot
+  - id: msg:abc::MessageStatus[2].snapshot
     happens_after:
       - msg:ConnectionIsOpened[2]
     send:
@@ -349,7 +349,7 @@ events:
       type: CustomMessage
       data:
         bind:
-          PositionStatus:
+          MessageStatus:
             account_id: $ACCOUNT_ID
             stream_id: $STREAM_ID[2]
             user_id: I:108
@@ -358,16 +358,16 @@ events:
               items:
                 - id: 15
                   pid: 1.0
-  - id: msg:Cqg::PositionsInitialSyncDone[2]
+  - id: msg:abc::MessagesInitialSyncDone[2]
     happens_after:
-      - msg:Cqg::PositionStatus[2].snapshot
+      - msg:abc::MessageStatus[2].snapshot
     send:
       from: conn
       to: master
       type: CustomMessage
       data:
         bind:
-          PositionsInitialSyncDone:
+          MessagesInitialSyncDone:
             account_id: $ACCOUNT_ID
             stream_id: $STREAM_ID[2]
 
@@ -380,7 +380,7 @@ events:
       for: 10s
       step: 1s
 
-  - id: msg:Cqg::PositionStatus[1].update
+  - id: msg:abc::MessageStatus[1].update
     happens_after:
       - 10-sec-happens_after-both-connections-opened
     send:
@@ -389,7 +389,7 @@ events:
       type: CustomMessage
       data:
         bind:
-          PositionStatus:
+          MessageStatus:
             account_id: $ACCOUNT_ID
             stream_id: $STREAM_ID[1]
             user_id: I:108
@@ -401,7 +401,7 @@ events:
                 - id: 2
                   pid: 1.0
 
-  - id: msg:Cqg::PositionStatus[2].update
+  - id: msg:abc::MessageStatus[2].update
     happens_after:
       - 10-sec-happens_after-both-connections-opened
     send:
@@ -410,7 +410,7 @@ events:
       type: CustomMessage
       data:
         bind:
-          PositionStatus:
+          MessageStatus:
             account_id: $ACCOUNT_ID
             stream_id: $STREAM_ID[2]
             user_id: 108
@@ -425,8 +425,8 @@ events:
   - id: msg:DataAdjustment
     require: reached
     happens_after:
-      - msg:Cqg::PositionStatus[1].update
-      - msg:Cqg::PositionStatus[2].update
+      - msg:abc::MessageStatus[1].update
+      - msg:abc::MessageStatus[2].update
     recv:
       from: master
       type: DataAdjustment
