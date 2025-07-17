@@ -6,7 +6,7 @@ use crate::scenario::DefEventKind;
 
 use super::{DefEvent, Scenario};
 
-pub(crate) fn draw(scenario: &Scenario) -> String {
+pub(crate) fn draw(scenario: &Scenario, verbose: bool) -> String {
     let mut output_bytes = Vec::new();
 
     let mut writer = DotWriter::from(&mut output_bytes);
@@ -21,7 +21,7 @@ pub(crate) fn draw(scenario: &Scenario) -> String {
         .iter()
         .filter(|event| seen_ids.insert(event.id.clone()))
     {
-        draw_node(&mut digraph, &event);
+        draw_node(&mut digraph, &event, verbose);
     }
 
     for event in &scenario.events {
@@ -35,7 +35,7 @@ pub(crate) fn draw(scenario: &Scenario) -> String {
     String::from_utf8(output_bytes).unwrap()
 }
 
-fn draw_node(digraph: &mut Scope, event: &DefEvent) {
+fn draw_node(digraph: &mut Scope, event: &DefEvent, verbose: bool) {
     let mut node = digraph.node_named(quote(&event.id));
 
     let (kind, data) = match &event.kind {
@@ -46,6 +46,7 @@ fn draw_node(digraph: &mut Scope, event: &DefEvent) {
         DefEventKind::Delay(delay) => ("DELAY", serde_yaml::to_string(&delay).unwrap()),
     };
 
+    let data = if verbose { data } else { "".to_string() };
     let label = format!(r#"{}\nid={}\n\n{}"#, kind, event.id, data);
     node.set_label(&label);
 }

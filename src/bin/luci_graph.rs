@@ -17,6 +17,13 @@ struct Args {
     scenario_file: Option<PathBuf>,
     #[clap(long = "output", short = 'o', help = "Graphviz file (default: stdout")]
     output_file: Option<PathBuf>,
+    #[clap(
+        long = "verbose",
+        short = 'v',
+        default_value_t = false,
+        help = "Add additional information to the graph"
+    )]
+    verbose: bool,
 }
 
 fn main() {
@@ -55,7 +62,7 @@ fn run(args: &Args) -> String {
     let scenario: Scenario =
         serde_yaml::from_str(&scenario).expect("Failed to parse YAML scenario file");
 
-    draw_scenario(&scenario)
+    draw_scenario(&scenario, args.verbose)
 }
 
 #[cfg(test)]
@@ -67,6 +74,7 @@ mod test {
         let args = super::Args {
             scenario_file: Some("tests/luci_graph/sample.yml".into()),
             output_file: None,
+            verbose: true,
         };
         let result = run(&args);
 
