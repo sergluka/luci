@@ -283,6 +283,10 @@ impl Builder {
                     };
                     let bind_in = self.events_bind.insert(event_bind_in);
                     let ek_bind_in = EventKey::Bind(bind_in);
+                    self.event_names.insert(
+                        ek_bind_in,
+                        (this_scope_key, this_name.with_suffix(" (ENTER)")),
+                    );
 
                     for sub_entry_point in sub_entry_points {
                         let hasnt_been_added_before = self
@@ -373,6 +377,7 @@ impl Builder {
                         message_data,
                         from,
                         to,
+                        timeout,
                         no_extra: _,
                     } = def_recv;
 
@@ -392,6 +397,7 @@ impl Builder {
                         to: to.clone(),
                         fqn: type_fqn,
                         payload: message_data.clone(),
+                        timeout: *timeout,
                         scope_key: this_scope_key,
                     });
                     let ek_recv = EventKey::Recv(key);

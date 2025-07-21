@@ -115,6 +115,11 @@ pub struct DefEventRecv {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub to: Option<ActorName>,
 
+    #[serde(with = "humantime_serde")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub timeout: Option<Duration>,
+
     #[serde(flatten)]
     pub no_extra: NoExtra,
 }
@@ -164,7 +169,7 @@ pub struct DefEventDelay {
 }
 
 /// A template for marshalling [elfo::AnyMessage].
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Msg {
     /// Stores [Value] to be marshalled as [elfo::AnyMessage] as-is.
