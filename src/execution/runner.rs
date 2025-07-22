@@ -18,7 +18,7 @@ use crate::{
     },
     marshalling,
     names::{ActorName, EventName},
-    scenario::Msg,
+    scenario::SrcMsg,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -358,11 +358,11 @@ impl<'a> Runner<'a> {
 
             recorder_src.write(records::UsingMsg(src.clone()));
             let value = match src {
-                Msg::Literal(value) => value.clone(),
-                Msg::Bind(template) => {
+                SrcMsg::Literal(value) => value.clone(),
+                SrcMsg::Bind(template) => {
                     bindings::render(template.clone(), src_scope).map_err(RunError::BindError)?
                 }
-                Msg::Inject(key) => {
+                SrcMsg::Inject(key) => {
                     let m = marshalling.value(key).ok_or(RunError::Marshalling(
                         format!("no such key: {:?}", key).into(),
                     ))?;
@@ -404,6 +404,7 @@ impl<'a> Runner<'a> {
             }
 
             // TODO: pass the recorder_dst inside
+            recorder.write(records::BindToPattern(dst.clone()));
             if !bindings::bind_to_pattern(value, dst, &mut dst_scope_txn) {
                 recorder.write(records::BindOutcome(false));
                 trace!("could not bind {:?}", bind_key);
@@ -500,7 +501,7 @@ impl<'a> Runner<'a> {
                         fqn: match_type,
                         from: match_from,
                         to: match_to,
-                        payload: match_message,
+                        payload_matchers,
                         timeout: _,
                         scope_key,
                     } = &events.recv[recv_key];
@@ -561,8 +562,11 @@ impl<'a> Runner<'a> {
                         (_, _) => (),
                     }
 
-                    let bound =
-                        marshaller.match_inbound_message(&envelope, match_message, &mut scope_txn);
+                    let bound = payload_matchers.iter().all(|m| {
+                        recorder.write(records::BindToPattern(m.clone()));
+                        marshaller.match_inbound_message(&envelope, m, &mut scope_txn)
+                    });
+
                     recorder.write(records::BindOutcome(bound));
                     if !bound {
                         trace!("   marshaller couldn't bind");

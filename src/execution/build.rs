@@ -18,7 +18,8 @@ use crate::{
     marshalling,
     names::SubroutineName,
     scenario::{
-        DefEventBind, DefEventDelay, DefEventRecv, DefEventRespond, DefEventSend, Msg, RequiredToBe,
+        DefEventBind, DefEventDelay, DefEventRecv, DefEventRespond, DefEventSend, DstPattern,
+        RequiredToBe, SrcMsg,
     },
 };
 use crate::{
@@ -267,9 +268,12 @@ impl Builder {
 
                     let event_bind_in = {
                         let (dst, src) = if let Some(def_bind_in) = def_call.input.as_ref() {
-                            (def_bind_in.dst.clone(), Msg::Bind(def_bind_in.src.clone()))
+                            (
+                                def_bind_in.dst.clone(),
+                                SrcMsg::Bind(def_bind_in.src.clone()),
+                            )
                         } else {
-                            (json!(null), Msg::Literal(json!(null)))
+                            (DstPattern(json!(null)), SrcMsg::Literal(json!(null)))
                         };
                         EventBind {
                             dst,
@@ -301,10 +305,10 @@ impl Builder {
                         let (dst, src) = if let Some(def_bind_out) = def_call.output.as_ref() {
                             (
                                 def_bind_out.dst.clone(),
-                                Msg::Bind(def_bind_out.src.clone()),
+                                SrcMsg::Bind(def_bind_out.src.clone()),
                             )
                         } else {
-                            (json!(null), Msg::Literal(json!(null)))
+                            (DstPattern(json!(null)), SrcMsg::Literal(json!(null)))
                         };
                         EventBind {
                             dst,
@@ -375,6 +379,7 @@ impl Builder {
                     let DefEventRecv {
                         message_type,
                         message_data,
+                        also_match_data,
                         from,
                         to,
                         timeout,
@@ -396,7 +401,10 @@ impl Builder {
                         from: from.clone(),
                         to: to.clone(),
                         fqn: type_fqn,
-                        payload: message_data.clone(),
+                        payload_matchers: [message_data.clone()]
+                            .into_iter()
+                            .chain(also_match_data.into_iter().cloned())
+                            .collect(),
                         timeout: *timeout,
                         scope_key: this_scope_key,
                     });

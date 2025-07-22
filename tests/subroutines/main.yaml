@@ -8,7 +8,7 @@ types:
   - use: subroutines::proto::partying::Gulp
     as: Gulp
 
-subs:
+subroutines:
   - load: smalltalk.yaml
     as: smalltalk
 cast:
@@ -31,11 +31,10 @@ events:
     recv:
       from: guest
       type: MayI
-      data:
-        literal: ~
+      data: ~
   
   - id: guest-is-welcome
-    after:
+    happens_after:
       - guest-arrives-to-the-party
     respond:
       to_request: guest-arrives-to-the-party
@@ -44,7 +43,7 @@ events:
         literal: ~
 
   - id: guest-is-offered-a-sip-of-water
-    after:
+    happens_after:
       - guest-is-welcome
     send:
       to: guest
@@ -54,22 +53,20 @@ events:
         literal: ~
 
   - id: guest-accepts-the-offer
-    after:
+    happens_after:
       - guest-is-welcome
     recv:
       to: host
       from: guest
       type: Gulp
-      data:
-        literal: ~
+      data: ~
   
   - id: guest-leaves-the-party-willingly
-    after:
+    happens_after:
       - guest-accepts-the-offer
     require: reached
     recv:
       from: guest
       type: SeeYou
-      data:
-        literal: ~
+      data: ~
 

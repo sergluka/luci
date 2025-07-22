@@ -21,7 +21,6 @@ pub struct Scenario {
 
     #[serde(default)]
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    #[cfg_attr(feature = "backward-compatibility", serde(alias = "subs"))]
     pub subroutines: Vec<DefDeclareSub>,
 
     pub cast: Vec<ActorName>,
@@ -72,7 +71,6 @@ pub struct DefEvent {
     #[serde(default)]
     #[serde(skip_serializing_if = "Vec::is_empty")]
     #[serde(rename = "happens_after")]
-    #[cfg_attr(feature = "backward-compatibility", serde(alias = "after"))]
     pub prerequisites: Vec<EventName>,
 
     #[serde(flatten)]
@@ -95,8 +93,8 @@ pub enum DefEventKind {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DefEventBind {
-    pub dst: Value,
-    pub src: Msg,
+    pub dst: DstPattern,
+    pub src: SrcMsg,
 
     #[serde(flatten)]
     pub no_extra: NoExtra,
@@ -107,7 +105,12 @@ pub struct DefEventRecv {
     #[serde(rename = "type")]
     pub message_type: MessageName,
     #[serde(rename = "data")]
-    pub message_data: Msg,
+    pub message_data: DstPattern,
+
+    #[serde(rename = "also")]
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub also_match_data: Vec<DstPattern>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub from: Option<ActorName>,
@@ -134,7 +137,7 @@ pub struct DefEventSend {
     #[serde(rename = "type")]
     pub message_type: MessageName,
     #[serde(rename = "data")]
-    pub message_data: Msg,
+    pub message_data: SrcMsg,
 
     #[serde(flatten)]
     pub no_extra: NoExtra,
@@ -144,10 +147,8 @@ pub struct DefEventSend {
 pub struct DefEventRespond {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub from: Option<ActorName>,
-
-    #[cfg_attr(feature = "backward-compatibility", serde(alias = "to"))]
     pub to_request: EventName,
-    pub data: Msg,
+    pub data: SrcMsg,
 
     #[serde(flatten)]
     pub no_extra: NoExtra,
@@ -168,21 +169,23 @@ pub struct DefEventDelay {
     pub no_extra: NoExtra,
 }
 
-/// A template for marshalling [elfo::AnyMessage].
+/// A template for constructing a message.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum Msg {
+pub enum SrcMsg {
     /// Stores [Value] to be marshalled as [elfo::AnyMessage] as-is.
-    #[cfg_attr(feature = "backward-compatibility", serde(alias = "exact"))]
     Literal(Value),
     /// Stores [Value] to be bound with values for variables in it and then
     /// marshalled as [elfo::AnyMessage].
     Bind(Value),
     /// Stores a key to find a predefined [elfo::AnyMessage] to be injected
     /// into the message flow.
-    #[cfg_attr(feature = "backward-compatibility", serde(alias = "injected"))]
     Inject(String),
 }
+
+// A template for deconstructing a message.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DstPattern(pub Value);
 
 mod defaults {
     use std::time::Duration;
