@@ -278,8 +278,8 @@ mod display {
                 ProcessSend(r::ProcessSend(k)) => write!(f, "process send {:?}", k),
                 ProcessRespond(r::ProcessRespond(k)) => write!(f, "process resp {:?}", k),
 
-                BindSrcScope(r::BindSrcScope(k)) => write!(f, "src scope {:?}", k),
-                BindDstScope(r::BindDstScope(k)) => write!(f, "dst scope {:?}", k),
+                BindSrcScope(r::BindSrcScope(k)) => write!(f, "src scope {}", self.scope(*k)),
+                BindDstScope(r::BindDstScope(k)) => write!(f, "dst scope {}", self.scope(*k)),
 
                 UsingMsg(r::UsingMsg(SrcMsg::Inject(name))) => write!(f, "msg.inj {:?}", name),
                 UsingMsg(r::UsingMsg(SrcMsg::Literal(json))) => {
@@ -295,10 +295,13 @@ mod display {
                 BindValue(r::BindValue(json)) => {
                     write!(f, "value: {}", serde_json::to_string(json).unwrap())
                 }
+                NewBinding(r::NewBinding(key, value)) => {
+                    write!(f, "SET {} = {}", key, serde_json::to_string(value).unwrap())
+                }
 
                 EventFired(r::EventFired(k)) => {
                     let (scope, event) = self.executable.event_name(*k).unwrap();
-                    write!(f, "completed {} (@{:?})", event, scope)
+                    write!(f, "completed {} ({})", event, self.scope(scope))
                 }
 
                 BindActorName(r::BindActorName(name, addr, true)) => {
