@@ -4,12 +4,11 @@ use std::{
     time::Duration,
 };
 
-use bimap::BiHashMap;
-use slotmap::SlotMap;
+use slotmap::{SecondaryMap, SlotMap};
 
 use crate::{
     marshalling::MarshallingRegistry,
-    names::{ActorName, EventName, SubroutineName},
+    names::{ActorName, DummyName, EventName, SubroutineName},
     scenario::{DstPattern, RequiredToBe, SrcMsg},
 };
 
@@ -42,6 +41,8 @@ pub enum EventKey {
 #[derive(Debug)]
 pub struct Executable {
     marshalling: MarshallingRegistry,
+    pub(crate) actors: SlotMap<KeyActor, ActorInfo>,
+    pub(crate) dummies: SlotMap<KeyDummy, DummyInfo>,
     events: Events,
 
     root_scope_key: KeyScope,
@@ -54,6 +55,16 @@ pub struct Executable {
 pub(crate) struct ScopeInfo {
     pub(crate) source_key: KeyScenario,
     pub(crate) invoked_as: Option<(KeyScope, EventName, SubroutineName)>,
+}
+
+#[derive(Debug)]
+pub(crate) struct ActorInfo {
+    pub(crate) known_as: SecondaryMap<KeyScope, ActorName>,
+}
+
+#[derive(Debug)]
+pub(crate) struct DummyInfo {
+    pub(crate) known_as: SecondaryMap<KeyScope, DummyName>,
 }
 
 #[derive(Debug, Default)]
@@ -77,8 +88,8 @@ struct Events {
 struct EventSend {
     scope_key: KeyScope,
 
-    from: ActorName,
-    to: Option<ActorName>,
+    from: KeyDummy,
+    to: Option<KeyActor>,
     fqn: Arc<str>,
     payload: SrcMsg,
 }
@@ -87,8 +98,8 @@ struct EventSend {
 struct EventRecv {
     scope_key: KeyScope,
 
-    from: Option<ActorName>,
-    to: Option<ActorName>,
+    from: Option<KeyActor>,
+    to: Option<KeyDummy>,
     fqn: Arc<str>,
     timeout: Option<Duration>,
     payload_matchers: Vec<DstPattern>,
@@ -100,7 +111,7 @@ struct EventRespond {
 
     respond_to: KeyRecv,
     request_type: Arc<str>,
-    respond_from: Option<ActorName>,
+    respond_from: Option<KeyDummy>,
     payload: SrcMsg,
 }
 
@@ -121,12 +132,5 @@ struct EventBind {
 #[derive(Debug)]
 enum BindScope {
     Same(KeyScope),
-    Two {
-        src: KeyScope,
-        dst: KeyScope,
-
-        // left: src-scope
-        // right: dst-scope
-        actors: BiHashMap<ActorName, ActorName>,
-    },
+    Two { src: KeyScope, dst: KeyScope },
 }

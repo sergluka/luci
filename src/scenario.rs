@@ -23,7 +23,13 @@ pub struct Scenario {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub subroutines: Vec<DefDeclareSub>,
 
-    pub cast: Vec<ActorName>,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub actors: Vec<ActorName>,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub dummies: Vec<DummyName>,
+
     pub events: Vec<DefEvent>,
 
     #[serde(flatten)]
@@ -116,7 +122,7 @@ pub struct DefEventRecv {
     pub from: Option<ActorName>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub to: Option<ActorName>,
+    pub to: Option<DummyName>,
 
     #[serde(with = "humantime_serde")]
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -129,7 +135,7 @@ pub struct DefEventRecv {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DefEventSend {
-    pub from: ActorName,
+    pub from: DummyName,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub to: Option<ActorName>,
@@ -146,7 +152,7 @@ pub struct DefEventSend {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DefEventRespond {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub from: Option<ActorName>,
+    pub from: Option<DummyName>,
     pub to_request: EventName,
     pub data: SrcMsg,
 
