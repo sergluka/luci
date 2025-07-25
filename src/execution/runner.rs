@@ -464,6 +464,7 @@ impl<'a> Runner<'a> {
                     from:         sent_from,
                     to_opt:       sent_to_opt,
                 });
+                recorder.write(records::UsingValue(serde_json::to_value(envelope.message()).unwrap()));
 
                 let mut envelope_unused = true;
 
