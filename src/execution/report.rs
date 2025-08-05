@@ -176,7 +176,7 @@ mod display {
             let dt_rt = t_rt.duration_since(t0_rt);
             write!(
                 f,
-                "[wall: {:?}; rt: {:?}] {}",
+                "[wall: {:>8?}; rt: {:>8?}] {}",
                 dt_wall,
                 dt_rt,
                 DisplayRecordKind {
@@ -231,39 +231,54 @@ mod display {
 
             match self.kind {
                 ProcessEventClass(r::ProcessEventClass(ReadyEventKey::Bind)) => {
-                    write!(f, "requested BIND")
+                    write!(f, "\x1b[90mrequested BIND\x1b[0m")
                 },
                 ProcessEventClass(r::ProcessEventClass(ReadyEventKey::RecvOrDelay)) => {
-                    write!(f, "requested RECV or DELAY")
+                    write!(f, "\x1b[90mrequested RECV or DELAY\x1b[0m")
                 },
                 ProcessEventClass(r::ProcessEventClass(ReadyEventKey::Send(k))) => {
                     let (scope, event) = self.executable.event_name((*k).into()).unwrap();
-                    write!(f, "requested SEND: {} ({})", event, self.scope(scope))
+                    write!(
+                        f,
+                        "\x1b[90mrequested SEND: {} ({})\x1b[0m",
+                        event,
+                        self.scope(scope)
+                    )
                 },
                 ProcessEventClass(r::ProcessEventClass(ReadyEventKey::Respond(k))) => {
                     let (scope, event) = self.executable.event_name((*k).into()).unwrap();
-                    write!(f, "requested RESP: {} ({})", event, self.scope(scope))
+                    write!(
+                        f,
+                        "\x1b[90mrequested RESP: {} ({})\x1b[0m",
+                        event,
+                        self.scope(scope)
+                    )
                 },
 
                 ReadyBindKeys(r::ReadyBindKeys(ks)) => {
-                    write!(f, "ready binds: [")?;
+                    write!(f, "\x1b[90mready binds: [")?;
                     for k in ks {
                         let (scope, event) = self.executable.event_name((*k).into()).unwrap();
                         write!(f, " {}({}) ", event, self.scope(scope))?;
                     }
-                    write!(f, "]")
+                    write!(f, "]\x1b[0m")
                 },
                 ReadyRecvKeys(r::ReadyRecvKeys(ks)) => {
-                    write!(f, "ready recvs: [")?;
+                    write!(f, "\x1b[90mready recvs: [")?;
                     for k in ks {
                         let (scope, event) = self.executable.event_name((*k).into()).unwrap();
                         write!(f, " {}({}) ", event, self.scope(scope))?;
                     }
-                    write!(f, "]")
+                    write!(f, "]\x1b[0m")
                 },
                 TimedOutRecvKey(r::TimedOutRecvKey(k)) => {
                     let (scope, event) = self.executable.event_name((*k).into()).unwrap();
-                    write!(f, "timed out RECV: {} ({})", event, self.scope(scope))
+                    write!(
+                        f,
+                        "\x1b[31mtimed out RECV: {} \x1b[0m({})",
+                        event,
+                        self.scope(scope)
+                    )
                 },
 
                 ProcessBindKey(r::ProcessBindKey(k)) => {
@@ -273,14 +288,18 @@ mod display {
                 ProcessSend(r::ProcessSend(k)) => write!(f, "process send {:?}", k),
                 ProcessRespond(r::ProcessRespond(k)) => write!(f, "process resp {:?}", k),
 
-                BindSrcScope(r::BindSrcScope(k)) => write!(f, "src scope {}", self.scope(*k)),
-                BindDstScope(r::BindDstScope(k)) => write!(f, "dst scope {}", self.scope(*k)),
+                BindSrcScope(r::BindSrcScope(k)) => {
+                    write!(f, "\x1b[92msrc scope\x1b[0m {}", self.scope(*k))
+                },
+                BindDstScope(r::BindDstScope(k)) => {
+                    write!(f, "\x1b[92mdst scope\x1b[0m {}", self.scope(*k))
+                },
 
                 MatchActorAddress(r::MatchActorAddress(ka, ks, exp, act)) if exp == act => {
                     let actor_name = &self.executable.actors[*ka].known_as[*ks];
                     write!(
                         f,
-                        "MATCH ACTOR {} = {} {}",
+                        "\x1b[32mMATCH ACTOR {} = {}\x1b[0m {}",
                         exp,
                         actor_name,
                         self.scope(*ks)
@@ -290,7 +309,7 @@ mod display {
                     let actor_name = &self.executable.actors[*ka].known_as[*ks];
                     write!(
                         f,
-                        "MISMATCH ACTOR exp={}, act={}; {} {}",
+                        "\x1b[33mMISMATCH ACTOR exp={}, act={}; {}\x1b[0m {}",
                         exp,
                         act,
                         actor_name,
@@ -301,7 +320,7 @@ mod display {
                     let actor_name = &self.executable.actors[*ka].known_as[*ks];
                     write!(
                         f,
-                        "SET actor name {} = {} {}",
+                        "\x1b[32mSET actor name {} = {} \x1b[0m {}",
                         addr,
                         actor_name,
                         self.scope(*ks)
@@ -322,7 +341,7 @@ mod display {
                     let dummy_name = &self.executable.dummies[*kd].known_as[*ks];
                     write!(
                         f,
-                        "MATCH DUMMY {} = {} {}",
+                        "\x1b[32mMATCH DUMMY {} = {}\x1b[0m {}",
                         exp,
                         dummy_name,
                         self.scope(*ks)
@@ -332,7 +351,7 @@ mod display {
                     let dummy_name = &self.executable.dummies[*kd].known_as[*ks];
                     write!(
                         f,
-                        "MISMATCH DUMMY exp={}, act={}; {} {}",
+                        "\x1b[33mMISMATCH DUMMY exp={}, act={}; {}\x1b[0m {}",
                         exp,
                         act,
                         dummy_name,
@@ -352,23 +371,39 @@ mod display {
                     write!(f, "pattern: {}", serde_json::to_string(pattern).unwrap())
                 },
                 UsingValue(r::UsingValue(json)) => {
-                    write!(f, "value: {}", serde_json::to_string(json).unwrap())
+                    write!(
+                        f,
+                        "\x1b[34mvalue: {}\x1b[0m",
+                        serde_json::to_string(json).unwrap()
+                    )
                 },
                 NewBinding(r::NewBinding(key, value)) => {
-                    write!(f, "SET {} = {}", key, serde_json::to_string(value).unwrap())
+                    write!(
+                        f,
+                        "\x1b[32mSET {} = {}\x1b[0m",
+                        key,
+                        serde_json::to_string(value).unwrap()
+                    )
                 },
 
                 EventFired(r::EventFired(k)) => {
                     let (scope, event) = self.executable.event_name(*k).unwrap();
-                    write!(f, "completed {} ({})", event, self.scope(scope))
+                    write!(
+                        f,
+                        "\x1b[1;32mcompleted {} \x1b[0m({})",
+                        event,
+                        self.scope(scope)
+                    )
                 },
 
-                SendMessageType(r::SendMessageType(fqn)) => write!(f, "send {}", fqn),
-                SendTo(r::SendTo(None)) => write!(f, "routed"),
-                SendTo(r::SendTo(Some(addr))) => write!(f, "to:{}", addr),
+                SendMessageType(r::SendMessageType(fqn)) => {
+                    write!(f, "\x1b[36msend {}\x1b[0m", fqn)
+                },
+                SendTo(r::SendTo(None)) => write!(f, "\x1b[36mrouted\x1b[0m"),
+                SendTo(r::SendTo(Some(addr))) => write!(f, "\x1b[36mto:{}\x1b[0m", addr),
 
-                BindOutcome(r::BindOutcome(true)) => write!(f, "BOUND"),
-                BindOutcome(r::BindOutcome(false)) => write!(f, "NOT BOUND"),
+                BindOutcome(r::BindOutcome(true)) => write!(f, "\x1b[1;32mBOUND\x1b[0m"),
+                BindOutcome(r::BindOutcome(false)) => write!(f, "\x1b[33mNOT BOUND\x1b[0m"),
 
                 EnvelopeReceived(r::EnvelopeReceived {
                     message_name,
@@ -376,9 +411,17 @@ mod display {
                     to_opt,
                 }) => {
                     if let Some(to) = to_opt {
-                        write!(f, "received {} from {} to {}", message_name, from, to)
+                        write!(
+                            f,
+                            "\x1b[35mreceived {} \x1b[1mfrom {} to {}\x1b[0m",
+                            message_name, from, to
+                        )
                     } else {
-                        write!(f, "received {} from {} routed", message_name, from)
+                        write!(
+                            f,
+                            "\x1b[35mreceived {} \x1b[1mfrom {} routed\x1b[0m",
+                            message_name, from
+                        )
                     }
                 },
 
