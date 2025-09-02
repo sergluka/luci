@@ -16,6 +16,7 @@ on:
       - "**/*.luci.yaml"
       - "schema.yaml"
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "**/*.luci.yaml"
       - "schema.yaml"
