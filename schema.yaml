@@ -1,0 +1,152 @@
+$schema: "http://json-schema.org/draft-07/schema#"
+title: "Luci scenario schema"
+type: object
+additionalProperties: false
+
+required:
+  - events
+
+properties:
+  subroutines:
+    type: array
+    items:
+      type: object
+      additionalProperties: false
+      properties:
+        load: { type: string }
+        as: { type: string }
+      required: [load, as]
+
+  actors:
+    type: array
+    items: { type: string }
+  dummies:
+    type: array
+    items: { type: string }
+
+  types:
+    type: array
+    items:
+      type: object
+      additionalProperties: false
+      properties:
+        use: { type: string }
+        as: { type: string }
+      required: [use, as]
+
+  events:
+    type: array
+    items:
+      type: object
+      additionalProperties: false
+      properties:
+        id: { type: string }
+        require:
+          type: string
+          enum: ["reached", "unreached"]
+        happens_after:
+          type: array
+          items: { type: string }
+
+        delay:
+          type: object
+          additionalProperties: false
+          properties:
+            for: { type: string }
+            step: { type: string }
+        bind:
+          $ref: "#/$defs/bind"
+
+        call:
+          type: object
+          additionalProperties: false
+          properties:
+            sub: { type: string }
+            actors: { $ref: "#/$defs/pair" }
+            dummies: { $ref: "#/$defs/pair" }
+            in:
+              properties:
+                src:
+                  anyOf:
+                    - type: object
+                    - type: array
+                      items: { type: "string" }
+                out:
+                  anyOf:
+                    - type: object
+                    - type: array
+                      items: { type: "string" }
+            out: { type: object }
+          required: [sub, actors, in]
+
+        send:
+          type: object
+          additionalProperties: false
+          properties:
+            from: { type: string }
+            to: { type: string }
+            type: { type: string }
+            data: { $ref: "#/$defs/data" }
+          required: [from, to, type, data]
+
+        recv:
+          type: object
+          additionalProperties: false
+          properties:
+            from: { type: string }
+            type: { type: string }
+            data:
+              oneOf:
+                - type: string
+                  pattern: ^\$.*
+                - type: object
+          required: [from, type, data]
+
+      required: [id]
+      oneOf:
+        - required: [delay]
+        - required: [bind]
+        - required: [call]
+        - required: [send]
+        - required: [recv]
+
+$defs:
+  bind:
+    type: object
+    additionalProperties: false
+    properties:
+      dst:
+        anyOf:
+          - type: string
+          - type: object
+            additionalProperties: false
+            properties:
+              bind: { type: [string, object] }
+          - type: array
+            items: { type: [string, object] }
+      src:
+        anyOf:
+          - type: string
+          - type: object
+            additionalProperties: false
+            properties:
+              bind:
+                type: array
+                items:
+                  type: [number, string, object, boolean, array]
+
+  data: # TODO: move to send?
+    oneOf:
+      - type: string
+        pattern: ^\$.*
+      - type: object
+        properties:
+          bind:
+            type: object
+        additionalProperties: false
+        required: [bind]
+
+  pair:
+    type: object
+    additionalProperties:
+      type: [string, number, boolean, null]
