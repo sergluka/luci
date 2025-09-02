@@ -54,8 +54,36 @@ properties:
           properties:
             for: { type: string }
             step: { type: string }
+
         bind:
-          $ref: "#/$defs/bind"
+          type: object
+          additionalProperties: false
+          properties:
+            dst:
+              anyOf:
+                - type: string
+                - type: object
+                  additionalProperties: false
+                  properties:
+                    bind: { type: [string, object] }
+                    literal: { type: [string, object] }
+                - type: array
+                  items: { type: [string, object] }
+                - type: object
+            src:
+              anyOf:
+                - type: string
+                - type: object
+                  additionalProperties: false
+                  properties:
+                    bind:
+                      anyOf:
+                        - type: array
+                          items:
+                            type: [number, string, object, boolean, array]
+                        - type: string
+                        - type: object
+                    literal: { type: [string, object] }
 
         call:
           type: object
@@ -77,7 +105,7 @@ properties:
                     - type: array
                       items: { type: "string" }
             out: { type: object }
-          required: [sub, actors, in]
+          required: [sub]
 
         send:
           type: object
@@ -87,66 +115,66 @@ properties:
             to: { type: string }
             type: { type: string }
             data: { $ref: "#/$defs/data" }
-          required: [from, to, type, data]
+
+          required: [from, type, data]
 
         recv:
           type: object
           additionalProperties: false
           properties:
             from: { type: string }
+            to: { type: string }
             type: { type: string }
             data:
               oneOf:
                 - type: string
                   pattern: ^\$.*
                 - type: object
-          required: [from, type, data]
+                - type: "null"
+            also:
+              type: array
+              items: { type: object }
+            after_duration: { type: string }
+            before_duration: { type: string }
+            timeout: { type: string }
+          required: [type, data]
+
+        respond:
+          type: object
+          additionalProperties: false
+          properties:
+            to_request: { type: string }
+            from: { type: string }
+            data: { $ref: "#/$defs/data" }
+          required: [to_request, from, data]
 
       required: [id]
-      oneOf:
+      anyOf:
         - required: [delay]
         - required: [bind]
         - required: [call]
         - required: [send]
         - required: [recv]
+        - required: [respond]
 
 $defs:
-  bind:
-    type: object
-    additionalProperties: false
-    properties:
-      dst:
-        anyOf:
-          - type: string
-          - type: object
-            additionalProperties: false
-            properties:
-              bind: { type: [string, object] }
-          - type: array
-            items: { type: [string, object] }
-      src:
-        anyOf:
-          - type: string
-          - type: object
-            additionalProperties: false
-            properties:
-              bind:
-                type: array
-                items:
-                  type: [number, string, object, boolean, array]
-
-  data: # TODO: move to send?
+  data:
     oneOf:
       - type: string
         pattern: ^\$.*
       - type: object
         properties:
           bind:
-            type: object
+            anyOf:
+              - type: string
+              - type: object
+          literal:
+            anyOf:
+              - type: [string, "null"]
+              - type: object
         additionalProperties: false
-        required: [bind]
 
   pair:
     type: object
-    # additionalProperties:
-    # type: [string, number, boolean, null]
+    additionalProperties:
+      type: [string, number, boolean, "null"]
