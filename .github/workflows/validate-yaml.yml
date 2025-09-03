@@ -1,22 +1,11 @@
 name: Validate scenarios
 
 on:
-  workflow_dispatch:
-    inputs:
-      file_glob:
-        description: "Files to validate"
-        required: false
-        default: "**/*.luci.yaml"
-      schema_path:
-        description: "Schema path"
-        required: false
-        default: "schema.yaml"
   push:
     paths:
       - "**/*.luci.yaml"
       - "schema.yaml"
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "**/*.luci.yaml"
       - "schema.yaml"
