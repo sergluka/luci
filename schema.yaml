@@ -13,7 +13,9 @@ properties:
       type: object
       additionalProperties: false
       properties:
-        load: { type: string }
+        load:
+          type: string
+          pattern: "^[^\\s]+\\.luci\\.yaml$"
         as: { type: string }
       required: [load, as]
 
@@ -84,6 +86,7 @@ properties:
                         - type: string
                         - type: object
                     literal: { type: [string, object] }
+                    inject: { type: [string] }
 
         call:
           type: object
@@ -96,9 +99,11 @@ properties:
               properties:
                 src:
                   anyOf:
+                    - type: string
+                      pattern: ^\$.*
                     - type: object
                     - type: array
-                      items: { type: "string" }
+                      items: { type: [array, string, number, object, "null"] }
                 out:
                   anyOf:
                     - type: object
@@ -172,6 +177,7 @@ $defs:
             anyOf:
               - type: [string, "null"]
               - type: object
+          inject: string
         additionalProperties: false
 
   pair:
