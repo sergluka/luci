@@ -177,7 +177,7 @@ $defs:
             anyOf:
               - type: [string, "null"]
               - type: object
-          inject: string
+          inject: { type: string }
         additionalProperties: false
 
   pair:
